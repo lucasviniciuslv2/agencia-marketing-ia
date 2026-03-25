@@ -127,11 +127,11 @@ if st.button("🚀 Iniciar Agência"):
 
     # Lista de Agentes/Tarefas para processar
     agentes_jobs = [
-        ("pesquisador", "Pesquisador", f"Pesquise tendências para {tema}"),
-        ("diretor", "Diretor Criativo", f"Crie um conceito para {tema}"),
-        ("copywriter", "Copywriter", f"Escreva 3 legendas para {tema}"),
-        ("engenheiro", "Eng. Prompts", f"Crie prompts para {tema}"),
-        ("social", "Social Media", f"Crie o cronograma para {tema}")
+        ("pesquisador", "Pesquisador", f"Pesquise tendências de mercado para {tema}"),
+        ("diretor", "Diretor Criativo", f"Crie um conceito criativo inovador e um slogan para {tema}"),
+        ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram persuasivas com CTAs para {tema}"),
+        ("engenheiro", "Eng. Prompts", f"Crie 3 prompts detalhados em inglês para geração de imagens fotorealistas de {tema}"),
+        ("social", "Social Media", f"Crie um cronograma de postagens de 5 dias para o lançamento de {tema}")
     ]
 
     for id_ag, nome_ag, task_desc in agentes_jobs:
@@ -142,17 +142,30 @@ if st.button("🚀 Iniciar Agência"):
                 components.html(render_office(st.session_state.status, dict_selecionados), height=350)
 
             # 2. IA trabalha
-            ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert", llm=llm)
-            ts = Task(description=task_desc, expected_output="Resumo curto.", agent=ag)
+            ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert Sênior", llm=llm)
+            ts = Task(description=task_desc, expected_output="Resultado detalhado em português.", agent=ag)
             crew = Crew(agents=[ag], tasks=[ts])
             res = crew.kickoff()
             
-            resultado_final += f"### {nome_ag}\n{res.raw}\n\n"
+            # Formatação do Relatório
+            resultado_final += f"## 📝 {nome_ag}\n{res.raw}\n\n---\n\n"
 
             # 3. Atualiza visual: CONCLUÍDO
             st.session_state.status[id_ag] = "concluido"
             with escritorio_container:
                 components.html(render_office(st.session_state.status, dict_selecionados), height=350)
 
-    st.success("✅ Campanha concluída!")
+    # EXIBIÇÃO FINAL
+    st.success("✅ Campanha concluída com sucesso!")
+    
+    # Caixa de Resultado
+    st.markdown("### 📄 Relatório Gerado")
     st.markdown(resultado_final)
+
+    # BOTÃO DE DOWNLOAD (Restaurado)
+    st.download_button(
+        label="⬇️ Baixar Campanha Completa (.txt)",
+        data=resultado_final,
+        file_name="campanha_ia.txt",
+        mime="text/plain"
+    )
