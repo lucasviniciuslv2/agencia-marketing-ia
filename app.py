@@ -155,7 +155,11 @@ if st.button("🚀 Iniciar Agência"):
     if usar_pesquisador:
         atualizar("Pesquisador")
         agente = Agent(role="Pesquisador", goal=tema, backstory="Analista", llm=llm)
-        task = Task(description=f"Pesquise sobre {tema}", agent=agente)
+        task = Task(
+        description=f"Pesquise sobre {tema}",
+        expected_output="Resumo com insights relevantes",
+        agent=agente
+        )
         r = Crew([agente], [task]).kickoff()
         resultado_final += f"\n\n### 🔍 Pesquisa\n{r}"
         concluidos.append("Pesquisador")
@@ -166,7 +170,11 @@ if st.button("🚀 Iniciar Agência"):
     if usar_diretor:
         atualizar("Dir. Criativo")
         agente = Agent(role="Diretor Criativo", goal="Criar conceito", backstory="Criativo", llm=llm)
-        task = Task(description=f"Crie conceito para {tema}", agent=agente)
+        task = Task(
+        description=f"Crie conceito criativo para {tema}",
+        expected_output="Slogan, tom de voz e direção visual",
+        agent=agente
+        )
         r = Crew([agente], [task]).kickoff()
         resultado_final += f"\n\n### 🎨 Conceito\n{r}"
         concluidos.append("Dir. Criativo")
@@ -177,7 +185,11 @@ if st.button("🚀 Iniciar Agência"):
     if usar_copywriter:
         atualizar("Copywriter")
         agente = Agent(role="Copywriter", goal="Criar textos", backstory="Copy", llm=llm)
-        task = Task(description="Crie 3 legendas Instagram", agent=agente)
+        task = Task(
+        description="Crie 3 legendas para Instagram",
+        expected_output="3 textos com CTA e hashtags",
+        agent=agente
+        )
         r = Crew([agente], [task]).kickoff()
         resultado_final += f"\n\n### ✍️ Copy\n{r}"
         concluidos.append("Copywriter")
@@ -188,7 +200,11 @@ if st.button("🚀 Iniciar Agência"):
     if usar_engenheiro:
         atualizar("Eng. Prompts")
         agente = Agent(role="Prompt Engineer", goal="Criar prompts", backstory="IA", llm=llm)
-        task = Task(description="Crie prompts para imagens", agent=agente)
+        task = Task(
+        description="Crie prompts para imagens",
+        expected_output="3 prompts detalhados em inglês",
+        agent=agente
+        )
         r = Crew([agente], [task]).kickoff()
         resultado_final += f"\n\n### 🖼️ Prompts\n{r}"
         concluidos.append("Eng. Prompts")
@@ -199,7 +215,11 @@ if st.button("🚀 Iniciar Agência"):
     if usar_social:
         atualizar("Social Media")
         agente = Agent(role="Social Media", goal="Criar cronograma", backstory="Estrategista", llm=llm)
-        task = Task(description="Organize posts", agent=agente)
+        task = Task(
+        description="Organize cronograma de posts",
+        expected_output="Plano organizado de conteúdo",
+        agent=agente
+        )
         r = Crew([agente], [task]).kickoff()
         resultado_final += f"\n\n### 📱 Social\n{r}"
         concluidos.append("Social Media")
