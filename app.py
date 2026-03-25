@@ -212,17 +212,18 @@ if iniciar:
         max_retries=2
     )
 
-    agentes = []
-    tarefas = []
-    mapa_status = {
-        "Pesquisador": "espera",
-        "Dir. Criativo": "espera",
-        "Copywriter": "espera",
-        "Eng. Prompts": "espera",
-        "Social Media": "espera",
-    }
+   agentes = []
+tarefas = []
 
-   def atualizar_escritorio(agente_ativo, concluidos):
+mapa_status = {
+    "Pesquisador": "espera",
+    "Dir. Criativo": "espera",
+    "Copywriter": "espera",
+    "Eng. Prompts": "espera",
+    "Social Media": "espera",
+}
+
+def atualizar_escritorio(agente_ativo, concluidos):
     for k in mapa_status:
         if k == agente_ativo:
             mapa_status[k] = "trabalhando"
@@ -234,10 +235,12 @@ if iniciar:
     with escritorio:
         components.html(render_office(mapa_status), height=520)
 
-    concluidos = []
-    resultado_final = ""
-
     time.sleep(0.5)
+
+
+# 🔽 FORA da função (nível base)
+concluidos = []
+resultado_final = ""
     # --- Pesquisador ---
     if usar_pesquisador:
         atualizar_escritorio("Pesquisador", concluidos)
