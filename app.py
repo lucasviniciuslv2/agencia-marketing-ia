@@ -1,262 +1,239 @@
 import streamlit as st
 import streamlit.components.v1 as components
-from crewai import Agent, Task, Crew, Process, LLM
+from crewai import Agent, Task, Crew, LLM
 
-st.set_page_config(page_title="Agência de Marketing IA", page_icon="🤖", layout="wide")
-
-# ==========================================
-# CSS GLOBAL
-# ==========================================
-st.markdown("""
-<style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;600;700&display=swap');
-    
-    html, body, [class*="css"] {
-        font-family: 'Space Grotesk', sans-serif;
-    }
-    .stButton > button {
-        background: linear-gradient(135deg, #1a1a2e, #16213e);
-        color: #00f5d4;
-        border: 1px solid #00f5d4;
-        border-radius: 8px;
-        font-weight: 700;
-        font-size: 1.1rem;
-        padding: 0.6rem 1.5rem;
-    }
-    .resultado-box {
-        background: #0f3460;
-        border-left: 4px solid #00f5d4;
-        border-radius: 8px;
-        padding: 1.5rem;
-        color: #e0e0e0;
-        white-space: pre-wrap;
-        margin-top: 20px;
-    }
-</style>
-""", unsafe_allow_html=True)
+st.set_page_config(page_title="Agência Virtual IA", page_icon="🏢", layout="wide")
 
 # ==========================================
-# FUNÇÃO DO ESCRITÓRIO (UI)
+# CSS PARA O ESTILO DO ESCRITÓRIO
 # ==========================================
-def render_office(status_agentes):
-    agentes_info = [
-        {"nome": "Pesquisador", "emoji": "🔍"},
-        {"nome": "Dir. Criativo", "emoji": "🎨"},
-        {"nome": "Copywriter", "emoji": "✍️"},
-        {"nome": "Eng. Prompts", "emoji": "🖼️"},
-        {"nome": "Social Media", "emoji": "📱"},
+def render_office_virtual(status_agentes):
+    # Configuração dos Agentes baseada na sua foto
+    agentes = [
+        {"id": "Pesquisador", "nome": "Pedro Pesquisa", "emoji": "🔍", "avatar": "👨‍💻"},
+        {"id": "Dir. Criativo", "nome": "Diana Didática", "emoji": "📚", "avatar": "👩‍💻"},
+        {"id": "Copywriter", "nome": "Estela Estratégia", "emoji": "💼", "avatar": "👩‍💼"},
+        {"id": "Eng. Prompts", "nome": "Lucas Landing", "emoji": "🌐", "avatar": "👨‍🚀"},
+        {"id": "Social Media", "nome": "Marcos Material", "emoji": "📦", "avatar": "👨‍🎨"},
+        {"id": "Revisor", "nome": "Renata Revisão", "emoji": "✅", "avatar": "👩‍🔬"},
     ]
 
-    cards = ""
-    for agente in agentes_info:
-        status = status_agentes.get(agente["nome"], "espera")
-
+    html_cards = ""
+    for ag em agentes:
+        status = status_agentes.get(ag["id"], "espera")
+        
+        # Lógica de cores e animação
+        glow_class = ""
+        status_label = "Dormindo..."
+        opacidade = "0.4"
+        cor_monitor = "#1e1e1e" # Desligado
+        
         if status == "trabalhando":
-            cor = "#00f5d4"
-            texto = "⚙️ Trabalhando..."
-            anim = "animation: pulse 1s infinite;"
+            glow_class = "trabalhando-anim"
+            status_label = "Digitando..."
+            opacidade = "1"
+            cor_monitor = "#00d4ff" # Ligado/Brilhando
         elif status == "concluido":
-            cor = "#06d6a0"
-            texto = "✅ Concluído"
-            anim = ""
-        else:
-            cor = "#555"
-            texto = "💤 Aguardando"
-            anim = ""
+            status_label = "Tarefa Pronta!"
+            opacidade = "1"
+            cor_monitor = "#00ff88" # Verde Sucesso
 
-        cards += f"""
-        <div style="border:2px solid {cor}; padding:15px; border-radius:12px; text-align:center; {anim} min-width: 120px;">
-            <div style="font-size:30px;">{agente['emoji']}</div>
-            <div style="color:white;font-weight:bold;">{agente['nome']}</div>
-            <div style="color:{cor}; font-size:12px;">{texto}</div>
+        html_cards += f"""
+        <div class="baia-container" style="opacity: {opacidade};">
+            <!-- Placa de Nome -->
+            <div class="name-tag">
+                <span class="emoji-status">{ag['emoji']}</span>
+                <span class="nome-texto">{ag['nome']}</span>
+                <span class="dot {status}"></span>
+            </div>
+            
+            <!-- Mesa e Computador -->
+            <div class="mesa">
+                <div class="monitor-suporte"></div>
+                <div class="monitor {glow_class}" style="background: {cor_monitor};">
+                    <div class="tela-reflexo"></div>
+                </div>
+                <div class="teclado"></div>
+                <div class="personagem">{ag['avatar']}</div>
+            </div>
+            <div class="chao-madeira"></div>
         </div>
         """
 
     return f"""
     <style>
-    @keyframes pulse {{
-        0% {{ box-shadow: 0 0 0px #00f5d4; }}
-        50% {{ box-shadow: 0 0 20px #00f5d4; }}
-        100% {{ box-shadow: 0 0 0px #00f5d4; }}
-    }}
+        @import url('https://fonts.googleapis.com/css2?family=Courier+Prime:wght@700&display=swap');
+        
+        body {{ background-color: #0a0a23; margin: 0; padding: 0; }}
+        
+        .office-grid {{
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 40px 20px;
+            padding: 20px;
+            background: #101030;
+            border-radius: 10px;
+            border: 4px solid #1e1e4e;
+        }}
+
+        .baia-container {{
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            transition: all 0.5s ease;
+        }}
+
+        /* Placa de Nome */
+        .name-tag {{
+            background: #000;
+            color: white;
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-family: 'Courier Prime', monospace;
+            font-size: 14px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            border: 1px solid #444;
+            margin-bottom: 10px;
+            z-index: 10;
+        }}
+
+        .dot {{ height: 10px; width: 10px; border-radius: 50%; display: inline-block; }}
+        .espera {{ background: #555; }}
+        .trabalhando {{ background: #00f5d4; box-shadow: 0 0 10px #00f5d4; }}
+        .concluido {{ background: #06d6a0; }}
+
+        /* O Computador */
+        .mesa {{
+            position: relative;
+            width: 160px;
+            height: 100px;
+            background: #e0e0e0;
+            border-radius: 5px 5px 0 0;
+            display: flex;
+            justify-content: center;
+        }}
+
+        .monitor {{
+            width: 80px;
+            height: 50px;
+            border: 4px solid #333;
+            border-radius: 5px;
+            position: absolute;
+            top: 10px;
+            overflow: hidden;
+        }}
+
+        .monitor-suporte {{
+            width: 20px;
+            height: 10px;
+            background: #333;
+            position: absolute;
+            top: 60px;
+        }}
+
+        .teclado {{
+            width: 50px;
+            height: 5px;
+            background: #999;
+            position: absolute;
+            top: 75px;
+            border-radius: 2px;
+        }}
+
+        .personagem {{
+            font-size: 40px;
+            position: absolute;
+            bottom: -15px;
+            z-index: 5;
+        }}
+
+        .chao-madeira {{
+            width: 200px;
+            height: 15px;
+            background: linear-gradient(to bottom, #4a2c2a, #301a19);
+            border-top: 2px solid #5d3a37;
+        }}
+
+        /* Animação de Trabalho */
+        .trabalhando-anim {{
+            animation: monitor-glow 1s infinite alternate;
+        }}
+
+        @keyframes monitor-glow {{
+            from {{ box-shadow: 0 0 5px #00d4ff; }}
+            to {{ box-shadow: 0 0 25px #00d4ff; }}
+        }}
+
+        .personagem {{
+            animation: typing 0.5s infinite alternate ease-in-out;
+        }}
+        @keyframes typing {{
+            from {{ transform: translateY(0); }}
+            to {{ transform: translateY(-3px); }}
+        }}
     </style>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; padding: 20px; background: #16213e; border-radius: 15px;">
-        {cards}
+
+    <div class="office-grid">
+        {html_cards}
     </div>
     """
 
 # ==========================================
-# SIDEBAR
+# CÓDIGO DO STREAMLIT (LÓGICA)
 # ==========================================
+
+st.title("🏢 Meu Escritório de IA")
+
+# Barra Lateral
 with st.sidebar:
-    st.markdown("## ⚙️ Configurações")
-    groq_api_key = st.text_input("🔑 Groq API Key", type="password")
-    tema = st.text_area("Qual o tema/produto da campanha?", placeholder="Ex: Um novo café artesanal orgânico")
-    
-    st.markdown("---")
-    st.markdown("### Agentes Ativos")
-    usar_pesquisador = st.checkbox("Pesquisador", True)
-    usar_diretor = st.checkbox("Diretor Criativo", True)
-    usar_copywriter = st.checkbox("Copywriter", True)
-    usar_engenheiro = st.checkbox("Eng. Prompts", True)
-    usar_social = st.checkbox("Social Media", True)
+    st.header("Configurações")
+    api_key = st.text_input("Groq API Key", type="password")
+    tema = st.text_input("Tema do Projeto")
+    botao_start = st.button("🚀 Colocar Equipe para Trabalhar")
 
-# ==========================================
-# HEADER
-# ==========================================
-st.title("🤖 Agência de Marketing IA")
-st.markdown("Veja sua equipe de agentes trabalhando em tempo real.")
+# Estado inicial dos agentes
+if 'status' not in st.session_state:
+    st.session_state.status = {
+        "Pesquisador": "espera", "Dir. Criativo": "espera", "Copywriter": "espera",
+        "Eng. Prompts": "espera", "Social Media": "espera", "Revisor": "espera"
+    }
 
-# ==========================================
-# ESCRITÓRIO (AREA DE STATUS)
-# ==========================================
-escritorio = st.empty()
+# Renderiza o escritório
+escritorio_placeholder = st.empty()
+with escritorio_placeholder:
+    components.html(render_office_virtual(st.session_state.status), height=450)
 
-status_inicial = {
-    "Pesquisador": "espera",
-    "Dir. Criativo": "espera",
-    "Copywriter": "espera",
-    "Eng. Prompts": "espera",
-    "Social Media": "espera",
-}
-
-with escritorio:
-    components.html(render_office(status_inicial), height=250)
-
-# ==========================================
-# LÓGICA DE EXECUÇÃO
-# ==========================================
-if st.button("🚀 Iniciar Agência"):
-
-    if not groq_api_key or not tema:
-        st.error("Por favor, insira a API Key e o Tema da campanha.")
-        st.stop()
-
-    # Configuração do LLM (Groq)
-    llm = LLM(
-        model="groq/llama-3.3-70b-versatile",
-        api_key=groq_api_key,
-        temperature=0.7
-    )
-
-    mapa_status = status_inicial.copy()
-    concluidos = []
-    resultado_final = ""
-
-    def atualizar_ui(nome_ativo):
-        """Atualiza visualmente o status dos agentes no Streamlit"""
-        for k in mapa_status:
-            if k == nome_ativo:
-                mapa_status[k] = "trabalhando"
-            elif k in concluidos:
-                mapa_status[k] = "concluido"
-            else:
-                mapa_status[k] = "espera"
+if botao_start:
+    if not api_key or not tema:
+        st.error("Preencha a chave e o tema!")
+    else:
+        llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=api_key)
         
-        with escritorio:
-            components.html(render_office(mapa_status), height=250)
+        # Lista de agentes para iterar (exemplo simplificado)
+        lista_trabalho = [
+            ("Pesquisador", "Pedro Pesquisa", "Pesquise sobre o tema"),
+            ("Dir. Criativo", "Diana Didática", "Crie um conceito"),
+            ("Copywriter", "Estela Estratégia", "Escreva as legendas")
+        ]
 
-    try:
-        # -------------------------
-        # 1. Pesquisador
-        # -------------------------
-        if usar_pesquisador:
-            atualizar_ui("Pesquisador")
-            agente = Agent(role="Pesquisador", goal=f"Pesquisar tendências para {tema}", backstory="Especialista em análise de mercado e tendências digitais.", llm=llm)
-            task = Task(
-                description=f"Faça uma pesquisa rápida sobre {tema}. Foque em público-alvo e diferenciais.",
-                expected_output="Um resumo de 3 parágrafos sobre o mercado e público.",
-                agent=agente
-            )
-            # CORREÇÃO: Argumentos nomeados e .raw no resultado
-            crew = Crew(agents=[agente], tasks=[task], verbose=False)
-            response = crew.kickoff()
-            resultado_final += f"## 🔍 Resultado da Pesquisa\n{response.raw}\n\n---\n"
-            concluidos.append("Pesquisador")
+        for id_agente, nome, tarefa_texto in lista_trabalho:
+            # 1. Atualiza para trabalhando
+            st.session_state.status[id_agente] = "trabalhando"
+            with escritorio_placeholder:
+                components.html(render_office_virtual(st.session_state.status), height=450)
+            
+            # 2. Executa a CrewAI
+            agente = Agent(role=nome, goal=tarefa_texto, backstory="Expert", llm=llm)
+            tarefa = Task(description=tarefa_texto, expected_output="Resultado curto", agent=agente)
+            crew = Crew(agents=[agente], tasks=[tarefa])
+            resultado = crew.kickoff()
+            
+            # 3. Finaliza agente
+            st.session_state.status[id_agente] = "concluido"
+            st.write(f"**{nome} entrega:** {resultado.raw}")
 
-        # -------------------------
-        # 2. Diretor Criativo
-        # -------------------------
-        if usar_diretor:
-            atualizar_ui("Dir. Criativo")
-            agente = Agent(role="Diretor Criativo", goal="Definir o conceito visual e tom de voz", backstory="Diretor de arte premiado com foco em branding.", llm=llm)
-            task = Task(
-                description=f"Com base no tema {tema}, crie um conceito criativo, um slogan e defina o tom de voz da campanha.",
-                expected_output="Conceito criativo, Slogan e Tom de voz detalhado.",
-                agent=agente
-            )
-            crew = Crew(agents=[agente], tasks=[task], verbose=False)
-            response = crew.kickoff()
-            resultado_final += f"## 🎨 Conceito Criativo\n{response.raw}\n\n---\n"
-            concluidos.append("Dir. Criativo")
-
-        # -------------------------
-        # 3. Copywriter
-        # -------------------------
-        if usar_copywriter:
-            atualizar_ui("Copywriter")
-            agente = Agent(role="Copywriter", goal="Escrever legendas persuasivas", backstory="Especialista em copywriting focado em conversão e engajamento.", llm=llm)
-            task = Task(
-                description=f"Escreva 3 legendas para posts de Instagram sobre {tema} usando o conceito criado anteriormente.",
-                expected_output="3 opções de legendas com emojis e hashtags.",
-                agent=agente
-            )
-            crew = Crew(agents=[agente], tasks=[task], verbose=False)
-            response = crew.kickoff()
-            resultado_final += f"## ✍️ Copywriting (Redação)\n{response.raw}\n\n---\n"
-            concluidos.append("Copywriter")
-
-        # -------------------------
-        # 4. Engenheiro de Prompts
-        # -------------------------
-        if usar_engenheiro:
-            atualizar_ui("Eng. Prompts")
-            agente = Agent(role="Engenheiro de Prompts", goal="Criar comandos para geradores de imagem", backstory="Especialista em transformar conceitos em imagens via Midjourney/DALL-E.", llm=llm)
-            task = Task(
-                description=f"Crie 3 prompts detalhados em INGLÊS para gerar imagens realistas de propaganda para {tema}.",
-                expected_output="3 prompts em inglês focados em qualidade fotorealista.",
-                agent=agente
-            )
-            crew = Crew(agents=[agente], tasks=[task], verbose=False)
-            response = crew.kickoff()
-            resultado_final += f"## 🖼️ Prompts para Imagens (IA)\n{response.raw}\n\n---\n"
-            concluidos.append("Eng. Prompts")
-
-        # -------------------------
-        # 5. Social Media
-        # -------------------------
-        if usar_social:
-            atualizar_ui("Social Media")
-            agente = Agent(role="Social Media", goal="Criar calendário de postagens", backstory="Estrategista de redes sociais focado em crescimento orgânico.", llm=llm)
-            task = Task(
-                description=f"Crie um plano de postagem de 5 dias para o lançamento de {tema}.",
-                expected_output="Um cronograma simples de segunda a sexta com ideias de posts.",
-                agent=agente
-            )
-            crew = Crew(agents=[agente], tasks=[task], verbose=False)
-            response = crew.kickoff()
-            resultado_final += f"## 📱 Cronograma Social Media\n{response.raw}\n\n"
-            concluidos.append("Social Media")
-
-        # Finalização da UI
-        for k in mapa_status:
-            mapa_status[k] = "concluido"
-        with escritorio:
-            components.html(render_office(mapa_status), height=250)
-
-        st.success("✅ Campanha gerada com sucesso!")
-        
-        # Exibição do Resultado
-        st.markdown(f'<div class="resultado-box">{resultado_final}</div>', unsafe_allow_html=True)
-
-        # Botão de Download
-        st.download_button(
-            label="⬇️ Baixar Relatório Completo",
-            data=resultado_final,
-            file_name="campanha_marketing_ia.md",
-            mime="text/markdown"
-        )
-
-    except Exception as e:
-        st.error(f"Ocorreu um erro durante a execução: {str(e)}")
-        st.info("Dica: Verifique se sua API Key da Groq é válida e se você tem saldo/limite disponível.")
+        with escritorio_placeholder:
+            components.html(render_office_virtual(st.session_state.status), height=450)
+        st.success("Trabalho concluído!")
