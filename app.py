@@ -230,8 +230,7 @@ if iniciar:
                 mapa_status[k] = "concluido"
             else:
                 mapa_status[k] = "espera"
-           with escritorio:
-        components.html(render_office(mapa_status), height=520)
+           with escritorio:components.html(render_office(mapa_status), height=520)
 
     time.sleep(0.5)
     concluidos = []
@@ -345,8 +344,7 @@ if iniciar:
     # Todos concluídos
     for k in mapa_status:
         mapa_status[k] = "concluido"
-    with escritorio:
-    components.html(render_office(mapa_status), height=520)
+    with escritorio:components.html(render_office(mapa_status), height=520)
 
     st.success("✅ Campanha concluída com sucesso!")
     st.markdown("---")
