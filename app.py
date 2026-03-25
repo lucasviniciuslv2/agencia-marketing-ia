@@ -188,7 +188,7 @@ status_inicial = {
     "Social Media": "espera",
 }
 escritorio = st.empty()
-escritorio.markdown(render_office(status_inicial), unsafe_allow_html=True)
+escritorio.components.v1.html(render_office(status_inicial), height=520)
 
 # ==========================================
 # BOTÃO PRINCIPAL
@@ -229,8 +229,8 @@ if iniciar:
                 mapa_status[k] = "concluido"
             else:
                 mapa_status[k] = "espera"
-        components.html(render_office(mapa_status), height=520)
-
+        escritorio.components.v1.html(render_office(mapa_status), height=520)
+        time.sleep(0.5)
     concluidos = []
     resultado_final = ""
 
@@ -342,7 +342,7 @@ if iniciar:
     # Todos concluídos
     for k in mapa_status:
         mapa_status[k] = "concluido"
-    escritorio.markdown(render_office(mapa_status), unsafe_allow_html=True)
+    escritorio.components.v1.html(render_office(mapa_status), height=520)
 
     st.success("✅ Campanha concluída com sucesso!")
     st.markdown("---")
