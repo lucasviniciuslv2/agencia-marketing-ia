@@ -222,20 +222,22 @@ if iniciar:
         "Social Media": "espera",
     }
 
-    def atualizar_escritorio(agente_ativo, concluidos):
-        for k in mapa_status:
-            if k == agente_ativo:
-                mapa_status[k] = "trabalhando"
-            elif k in concluidos:
-                mapa_status[k] = "concluido"
-            else:
-                mapa_status[k] = "espera"
-           with escritorio:components.html(render_office(mapa_status), height=520)
+   def atualizar_escritorio(agente_ativo, concluidos):
+    for k in mapa_status:
+        if k == agente_ativo:
+            mapa_status[k] = "trabalhando"
+        elif k in concluidos:
+            mapa_status[k] = "concluido"
+        else:
+            mapa_status[k] = "espera"
 
-    time.sleep(0.5)
+    with escritorio:
+        components.html(render_office(mapa_status), height=520)
+
     concluidos = []
     resultado_final = ""
 
+    time.sleep(0.5)
     # --- Pesquisador ---
     if usar_pesquisador:
         atualizar_escritorio("Pesquisador", concluidos)
