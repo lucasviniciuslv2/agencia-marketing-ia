@@ -30,12 +30,13 @@ st.markdown("""
         padding: 1.5rem;
         color: #e0e0e0;
         white-space: pre-wrap;
+        margin-top: 20px;
     }
 </style>
 """, unsafe_allow_html=True)
 
 # ==========================================
-# FUNÇÃO DO ESCRITÓRIO
+# FUNÇÃO DO ESCRITÓRIO (UI)
 # ==========================================
 def render_office(status_agentes):
     agentes_info = [
@@ -64,7 +65,7 @@ def render_office(status_agentes):
             anim = ""
 
         cards += f"""
-        <div style="border:2px solid {cor}; padding:15px; border-radius:12px; text-align:center; {anim}">
+        <div style="border:2px solid {cor}; padding:15px; border-radius:12px; text-align:center; {anim} min-width: 120px;">
             <div style="font-size:30px;">{agente['emoji']}</div>
             <div style="color:white;font-weight:bold;">{agente['nome']}</div>
             <div style="color:{cor}; font-size:12px;">{texto}</div>
@@ -79,7 +80,7 @@ def render_office(status_agentes):
         100% {{ box-shadow: 0 0 0px #00f5d4; }}
     }}
     </style>
-    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center;">
+    <div style="display:flex; gap:10px; flex-wrap:wrap; justify-content:center; padding: 20px; background: #16213e; border-radius: 15px;">
         {cards}
     </div>
     """
@@ -89,8 +90,11 @@ def render_office(status_agentes):
 # ==========================================
 with st.sidebar:
     st.markdown("## ⚙️ Configurações")
-    groq_api_key = st.text_input("🔑 API Key", type="password")
-    tema = st.text_area("Tema da campanha")
+    groq_api_key = st.text_input("🔑 Groq API Key", type="password")
+    tema = st.text_area("Qual o tema/produto da campanha?", placeholder="Ex: Um novo café artesanal orgânico")
+    
+    st.markdown("---")
+    st.markdown("### Agentes Ativos")
     usar_pesquisador = st.checkbox("Pesquisador", True)
     usar_diretor = st.checkbox("Diretor Criativo", True)
     usar_copywriter = st.checkbox("Copywriter", True)
@@ -101,9 +105,10 @@ with st.sidebar:
 # HEADER
 # ==========================================
 st.title("🤖 Agência de Marketing IA")
+st.markdown("Veja sua equipe de agentes trabalhando em tempo real.")
 
 # ==========================================
-# ESCRITÓRIO
+# ESCRITÓRIO (AREA DE STATUS)
 # ==========================================
 escritorio = st.empty()
 
@@ -116,17 +121,18 @@ status_inicial = {
 }
 
 with escritorio:
-    components.html(render_office(status_inicial), height=350)
+    components.html(render_office(status_inicial), height=250)
 
 # ==========================================
-# BOTÃO
+# LÓGICA DE EXECUÇÃO
 # ==========================================
 if st.button("🚀 Iniciar Agência"):
 
     if not groq_api_key or not tema:
-        st.error("Preencha os campos")
+        st.error("Por favor, insira a API Key e o Tema da campanha.")
         st.stop()
 
+    # Configuração do LLM (Groq)
     llm = LLM(
         model="groq/llama-3.3-70b-versatile",
         api_key=groq_api_key,
@@ -137,105 +143,120 @@ if st.button("🚀 Iniciar Agência"):
     concluidos = []
     resultado_final = ""
 
-    def atualizar(nome):
+    def atualizar_ui(nome_ativo):
+        """Atualiza visualmente o status dos agentes no Streamlit"""
         for k in mapa_status:
-            if k == nome:
+            if k == nome_ativo:
                 mapa_status[k] = "trabalhando"
             elif k in concluidos:
                 mapa_status[k] = "concluido"
             else:
                 mapa_status[k] = "espera"
-
+        
         with escritorio:
-            components.html(render_office(mapa_status), height=350)
+            components.html(render_office(mapa_status), height=250)
 
-    # -------------------------
-    # Pesquisador
-    # -------------------------
-    if usar_pesquisador:
-        atualizar("Pesquisador")
-        agente = Agent(role="Pesquisador", goal=tema, backstory="Analista", llm=llm)
-        task = Task(
-        description=f"Pesquise sobre {tema}",
-        expected_output="Resumo com insights relevantes",
-        agent=agente
+    try:
+        # -------------------------
+        # 1. Pesquisador
+        # -------------------------
+        if usar_pesquisador:
+            atualizar_ui("Pesquisador")
+            agente = Agent(role="Pesquisador", goal=f"Pesquisar tendências para {tema}", backstory="Especialista em análise de mercado e tendências digitais.", llm=llm)
+            task = Task(
+                description=f"Faça uma pesquisa rápida sobre {tema}. Foque em público-alvo e diferenciais.",
+                expected_output="Um resumo de 3 parágrafos sobre o mercado e público.",
+                agent=agente
+            )
+            # CORREÇÃO: Argumentos nomeados e .raw no resultado
+            crew = Crew(agents=[agente], tasks=[task], verbose=False)
+            response = crew.kickoff()
+            resultado_final += f"## 🔍 Resultado da Pesquisa\n{response.raw}\n\n---\n"
+            concluidos.append("Pesquisador")
+
+        # -------------------------
+        # 2. Diretor Criativo
+        # -------------------------
+        if usar_diretor:
+            atualizar_ui("Dir. Criativo")
+            agente = Agent(role="Diretor Criativo", goal="Definir o conceito visual e tom de voz", backstory="Diretor de arte premiado com foco em branding.", llm=llm)
+            task = Task(
+                description=f"Com base no tema {tema}, crie um conceito criativo, um slogan e defina o tom de voz da campanha.",
+                expected_output="Conceito criativo, Slogan e Tom de voz detalhado.",
+                agent=agente
+            )
+            crew = Crew(agents=[agente], tasks=[task], verbose=False)
+            response = crew.kickoff()
+            resultado_final += f"## 🎨 Conceito Criativo\n{response.raw}\n\n---\n"
+            concluidos.append("Dir. Criativo")
+
+        # -------------------------
+        # 3. Copywriter
+        # -------------------------
+        if usar_copywriter:
+            atualizar_ui("Copywriter")
+            agente = Agent(role="Copywriter", goal="Escrever legendas persuasivas", backstory="Especialista em copywriting focado em conversão e engajamento.", llm=llm)
+            task = Task(
+                description=f"Escreva 3 legendas para posts de Instagram sobre {tema} usando o conceito criado anteriormente.",
+                expected_output="3 opções de legendas com emojis e hashtags.",
+                agent=agente
+            )
+            crew = Crew(agents=[agente], tasks=[task], verbose=False)
+            response = crew.kickoff()
+            resultado_final += f"## ✍️ Copywriting (Redação)\n{response.raw}\n\n---\n"
+            concluidos.append("Copywriter")
+
+        # -------------------------
+        # 4. Engenheiro de Prompts
+        # -------------------------
+        if usar_engenheiro:
+            atualizar_ui("Eng. Prompts")
+            agente = Agent(role="Engenheiro de Prompts", goal="Criar comandos para geradores de imagem", backstory="Especialista em transformar conceitos em imagens via Midjourney/DALL-E.", llm=llm)
+            task = Task(
+                description=f"Crie 3 prompts detalhados em INGLÊS para gerar imagens realistas de propaganda para {tema}.",
+                expected_output="3 prompts em inglês focados em qualidade fotorealista.",
+                agent=agente
+            )
+            crew = Crew(agents=[agente], tasks=[task], verbose=False)
+            response = crew.kickoff()
+            resultado_final += f"## 🖼️ Prompts para Imagens (IA)\n{response.raw}\n\n---\n"
+            concluidos.append("Eng. Prompts")
+
+        # -------------------------
+        # 5. Social Media
+        # -------------------------
+        if usar_social:
+            atualizar_ui("Social Media")
+            agente = Agent(role="Social Media", goal="Criar calendário de postagens", backstory="Estrategista de redes sociais focado em crescimento orgânico.", llm=llm)
+            task = Task(
+                description=f"Crie um plano de postagem de 5 dias para o lançamento de {tema}.",
+                expected_output="Um cronograma simples de segunda a sexta com ideias de posts.",
+                agent=agente
+            )
+            crew = Crew(agents=[agente], tasks=[task], verbose=False)
+            response = crew.kickoff()
+            resultado_final += f"## 📱 Cronograma Social Media\n{response.raw}\n\n"
+            concluidos.append("Social Media")
+
+        # Finalização da UI
+        for k in mapa_status:
+            mapa_status[k] = "concluido"
+        with escritorio:
+            components.html(render_office(mapa_status), height=250)
+
+        st.success("✅ Campanha gerada com sucesso!")
+        
+        # Exibição do Resultado
+        st.markdown(f'<div class="resultado-box">{resultado_final}</div>', unsafe_allow_html=True)
+
+        # Botão de Download
+        st.download_button(
+            label="⬇️ Baixar Relatório Completo",
+            data=resultado_final,
+            file_name="campanha_marketing_ia.md",
+            mime="text/markdown"
         )
-        r = Crew([agente], [task]).kickoff()
-        resultado_final += f"\n\n### 🔍 Pesquisa\n{r}"
-        concluidos.append("Pesquisador")
 
-    # -------------------------
-    # Diretor Criativo
-    # -------------------------
-    if usar_diretor:
-        atualizar("Dir. Criativo")
-        agente = Agent(role="Diretor Criativo", goal="Criar conceito", backstory="Criativo", llm=llm)
-        task = Task(
-        description=f"Crie conceito criativo para {tema}",
-        expected_output="Slogan, tom de voz e direção visual",
-        agent=agente
-        )
-        r = Crew([agente], [task]).kickoff()
-        resultado_final += f"\n\n### 🎨 Conceito\n{r}"
-        concluidos.append("Dir. Criativo")
-
-    # -------------------------
-    # Copywriter
-    # -------------------------
-    if usar_copywriter:
-        atualizar("Copywriter")
-        agente = Agent(role="Copywriter", goal="Criar textos", backstory="Copy", llm=llm)
-        task = Task(
-        description="Crie 3 legendas para Instagram",
-        expected_output="3 textos com CTA e hashtags",
-        agent=agente
-        )
-        r = Crew([agente], [task]).kickoff()
-        resultado_final += f"\n\n### ✍️ Copy\n{r}"
-        concluidos.append("Copywriter")
-
-    # -------------------------
-    # Engenheiro de Prompts
-    # -------------------------
-    if usar_engenheiro:
-        atualizar("Eng. Prompts")
-        agente = Agent(role="Prompt Engineer", goal="Criar prompts", backstory="IA", llm=llm)
-        task = Task(
-        description="Crie prompts para imagens",
-        expected_output="3 prompts detalhados em inglês",
-        agent=agente
-        )
-        r = Crew([agente], [task]).kickoff()
-        resultado_final += f"\n\n### 🖼️ Prompts\n{r}"
-        concluidos.append("Eng. Prompts")
-
-    # -------------------------
-    # Social Media
-    # -------------------------
-    if usar_social:
-        atualizar("Social Media")
-        agente = Agent(role="Social Media", goal="Criar cronograma", backstory="Estrategista", llm=llm)
-        task = Task(
-        description="Organize cronograma de posts",
-        expected_output="Plano organizado de conteúdo",
-        agent=agente
-        )
-        r = Crew([agente], [task]).kickoff()
-        resultado_final += f"\n\n### 📱 Social\n{r}"
-        concluidos.append("Social Media")
-
-    # Final
-    for k in mapa_status:
-        mapa_status[k] = "concluido"
-
-    with escritorio:
-        components.html(render_office(mapa_status), height=350)
-
-    st.success("✅ Campanha concluída!")
-    st.markdown(f'<div class="resultado-box">{resultado_final}</div>', unsafe_allow_html=True)
-
-    st.download_button(
-        label="⬇️ Baixar resultado",
-        data=resultado_final,
-        file_name="campanha.txt"
-    )
+    except Exception as e:
+        st.error(f"Ocorreu um erro durante a execução: {str(e)}")
+        st.info("Dica: Verifique se sua API Key da Groq é válida e se você tem saldo/limite disponível.")
