@@ -229,7 +229,7 @@ if iniciar:
                 mapa_status[k] = "concluido"
             else:
                 mapa_status[k] = "espera"
-        escritorio.markdown(render_office(mapa_status), unsafe_allow_html=True)
+        components.html(render_office(mapa_status), height=520)
 
     concluidos = []
     resultado_final = ""
