@@ -1,29 +1,27 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from crewai import Agent, Task, Crew, LLM
+from crewai_tools import DuckDuckGoSearchRun # Ferramenta de busca grátis
 from fpdf import FPDF
 import time
+import urllib.parse # Para codificar o prompt da imagem
 
 # Configuração da Página
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
 
-# ==========================================
-# FUNÇÃO PARA RESETAR O APP (CORRIGIDA)
-# ==========================================
-def nova_campanha():
-    # Limpa o resultado e os status
-    st.session_state.resultado_final = ""
-    st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
-    
-    # Limpa o campo de texto do tema (importante: o widget precisa ter a key 'tema_input')
-    if "tema_input" in st.session_state:
-        st.session_state["tema_input"] = ""
-    
-    # NÃO PRECISA DE st.rerun() AQUI! O callback já faz isso sozinho.
+# Inicializa a ferramenta de busca
+search_tool = DuckDuckGoSearchRun()
 
 # ==========================================
-# FUNÇÃO PARA GERAR O PDF
+# FUNÇÕES DE APOIO
 # ==========================================
+def nova_campanha():
+    st.session_state.resultado_final = ""
+    st.session_state.prompt_gerado = ""
+    st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
+    if "tema_input" in st.session_state:
+        st.session_state["tema_input"] = ""
+
 def gerar_pdf(texto):
     pdf = FPDF()
     pdf.add_page()
@@ -36,9 +34,6 @@ def gerar_pdf(texto):
     pdf.multi_cell(0, 8, txt=line_text)
     return pdf.output()
 
-# ==========================================
-# MOTOR VISUAL DO ESCRITÓRIO
-# ==========================================
 def render_office(status_agentes, selecionados):
     agentes_config = [
         {"id": "pesquisador", "nome": "Pesquisador", "emoji": "🔍", "avatar": "👨‍💻"},
@@ -63,36 +58,27 @@ def render_office(status_agentes, selecionados):
     return f"""<style>.office-grid {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; width: 150px; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 11px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333; white-space: nowrap;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 140px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
 
 # ==========================================
-# INICIALIZAÇÃO DE ESTADO
+# INICIALIZAÇÃO
 # ==========================================
 if 'resultado_final' not in st.session_state: st.session_state.resultado_final = ""
+if 'prompt_gerado' not in st.session_state: st.session_state.prompt_gerado = ""
 if 'status' not in st.session_state: st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
 
-# ==========================================
-# SIDEBAR
-# ==========================================
 with st.sidebar:
     st.header("⚙️ Painel de Controle")
     groq_key = st.text_input("🔑 Groq API Key", type="password")
-    
-    # Adicionamos a KEY 'tema_input' para que a função nova_campanha consiga limpá-la
     tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Café artesanal orgânico", key="tema_input")
-    
     st.subheader("👥 Time Ativo")
     dict_selecionados = {
-        "pesquisador": st.checkbox("Pesquisador", True),
+        "pesquisador": st.checkbox("Pesquisador (Web Search)", True),
         "diretor": st.checkbox("Dir. Criativo", True),
         "copywriter": st.checkbox("Copywriter", True),
-        "engenheiro": st.checkbox("Eng. Prompts", True),
+        "engenheiro": st.checkbox("Eng. Prompts (Image Gen)", True),
         "social": st.checkbox("Social Media", True)
     }
-    
     col_btn1, col_btn2 = st.columns(2)
-    with col_btn1:
-        btn_iniciar = st.button("🚀 Iniciar", use_container_width=True)
-    with col_btn2:
-        # Botão de Reset chamando a função nova_campanha
-        st.button("🧹 Resetar", on_click=nova_campanha, use_container_width=True)
+    with col_btn1: btn_iniciar = st.button("🚀 Iniciar", use_container_width=True)
+    with col_btn2: st.button("🧹 Resetar", on_click=nova_campanha, use_container_width=True)
 
 st.title("🤖 Escritório Digital IA")
 escritorio_container = st.empty()
@@ -107,33 +93,45 @@ if btn_iniciar:
         st.error("Preencha a chave e o tema!")
     else:
         st.session_state.resultado_final = ""
+        st.session_state.prompt_gerado = ""
         for k in st.session_state.status: st.session_state.status[k] = "espera"
         
-        llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key, max_tokens=2048)
+        llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
         
         agentes_jobs = [
-            ("pesquisador", "Pesquisador", f"Analise público e tendências para {tema}."),
+            ("pesquisador", "Pesquisador", f"PESQUISE NA WEB tendências atuais, concorrentes e público para {tema}.", [search_tool]),
             ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}."),
             ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
-            ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere 3 prompts técnicos em INGLÊS para {tema}."),
-            ("social", "Social Media", f"Monte o cronograma de 5 dias integrando tudo para {tema}.")
+            ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere apenas UM prompt técnico final em INGLÊS para {tema}."),
+            ("social", "Social Media", f"Monte o cronograma de 5 dias integrando tudo.")
         ]
 
         contexto_acumulado = ""
+        
+        # O TEXTINHO DE STATUS VOLTOU AQUI
+        status_log = st.status("🚀 Iniciando agência...", expanded=True)
+        
         try:
-            for id_ag, nome_ag, task_desc in agentes_jobs:
+            for id_ag, nome_ag, task_desc, *tools in agentes_jobs:
                 if dict_selecionados[id_ag]:
+                    status_log.update(label=f"⚙️ {nome_ag} está trabalhando...", state="running")
+                    
                     st.session_state.status[id_ag] = "trabalhando"
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
 
                     tarefa_completa = f"{task_desc}\n\nContexto da equipe: {contexto_acumulado}"
-                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Sênior focado em entregas reais.", llm=llm)
-                    ts = Task(description=tarefa_completa, expected_output="Entrega técnica e criativa.", agent=ag)
+                    ag_tools = tools[0] if tools else []
                     
-                    crew = Crew(agents=[ag], tasks=[ts], max_rpm=10)
-                    res = crew.kickoff()
+                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Sênior Expert.", llm=llm, tools=ag_tools)
+                    ts = Task(description=tarefa_completa, expected_output="Entrega técnica.", agent=ag)
                     
+                    res = Crew(agents=[ag], tasks=[ts], max_rpm=5).kickoff()
+                    
+                    # Se for o engenheiro, tentamos extrair o prompt para a imagem
+                    if id_ag == "engenheiro":
+                        st.session_state.prompt_gerado = res.raw
+
                     st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
                     contexto_acumulado += f"\n[{nome_ag}: {res.raw}]"
                     
@@ -141,28 +139,38 @@ if btn_iniciar:
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
                     
-                    time.sleep(5) 
+                    time.sleep(2) 
 
-            st.success("🎯 Trabalho Finalizado!")
+            status_log.update(label="🎯 Trabalho Finalizado!", state="complete", expanded=False)
 
         except Exception as e:
+            status_log.update(label="❌ Erro na execução", state="error")
             st.error(f"Erro: {e}")
 
 # ==========================================
-# EXIBIÇÃO E DOWNLOADS
+# EXIBIÇÃO E IMAGEM
 # ==========================================
 if st.session_state.resultado_final:
+    
+    # GERADOR DE IMAGEM (NOVO)
+    if st.session_state.prompt_gerado:
+        st.markdown("### 🖼️ Conceito Visual Gerado")
+        # Limpa o prompt para a URL (remove aspas e quebras de linha)
+        prompt_limpo = st.session_state.prompt_gerado.replace("\n", " ").replace('"', '')
+        prompt_url = urllib.parse.quote(prompt_limpo)
+        # URL do Pollinations.ai (Grátis e sem chave)
+        image_url = f"https://pollinations.ai/p/{prompt_url}?width=1024&height=1024&model=flux"
+        
+        st.image(image_url, caption="Imagem sugerida pela IA para sua campanha", use_container_width=True)
+
     st.markdown("### 📄 Relatório de Entrega")
     st.info(st.session_state.resultado_final)
     
     col_d1, col_d2, col_d3 = st.columns(3)
-    with col_d1:
-        st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
+    with col_d1: st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
     with col_d2:
         try:
             pdf_data = gerar_pdf(st.session_state.resultado_final)
             st.download_button("⬇️ Baixar PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
         except: st.warning("Erro no PDF.")
-    with col_d3:
-        # Botão de Reset também no final
-        st.button("🔄 Nova Campanha", on_click=nova_campanha)
+    with col_d3: st.button("🔄 Nova Campanha", on_click=nova_campanha)
