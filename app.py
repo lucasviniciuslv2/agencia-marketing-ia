@@ -10,20 +10,20 @@ import re
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🏢", layout="wide")
 
 # ==========================================
-# FUNÇÕES DE SUPORTE
+# FUNÇÕES DE SUPORTE (SANITIZAÇÃO)
 # ==========================================
 def clean_visual_prompt(text):
-    """Extrai e limpa o prompt de forma agressiva para evitar URLs quebradas"""
-    # Procura por [PROMPT_VISUAL]texto[/PROMPT_VISUAL]
-    pattern = r"\[PROMPT_VISUAL\](.*?)\[/PROMPT_VISUAL\]"
-    match = re.search(pattern, text, re.DOTALL | re.IGNORECASE)
+    """Extrai e limpa o prompt para garantir que a URL seja válida"""
+    # 1. Procura o texto entre as tags
+    match = re.search(r"\[PROMPT_VISUAL\](.*?)\[/PROMPT_VISUAL\]", text, re.DOTALL | re.IGNORECASE)
     
     if match:
         prompt = match.group(1).strip()
-        # Remove markdown, aspas, backticks e quebras de linha
-        prompt = prompt.replace('`', '').replace('"', '').replace("'", "").replace('\n', ' ')
-        # Remove prefixos comuns que a IA insere por erro
-        prompt = re.sub(r'^(prompt|visual prompt|image prompt):\s*', '', prompt, flags=re.IGNORECASE)
+        # 2. Remove TUDO que não for letra, número ou espaço simples
+        # Isso remove aspas, asteriscos, hashtags, emojis, etc.
+        prompt = re.sub(r'[^\w\s,]', '', prompt)
+        # 3. Transforma múltiplas quebras de linha ou espaços em um espaço só
+        prompt = " ".join(prompt.split())
         return prompt
     return None
 
@@ -114,9 +114,12 @@ if btn_iniciar:
             ("diretor", "Dir. Criativo", f"Crie slogan e conceito para {tema}."),
             ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
             ("engenheiro", "Eng. Prompts", f"""Gere 3 variações de prompts para {tema}. 
-             IMPORTANTE: Após as variações, escreva apenas UMA linha final contendo o melhor prompt em inglês cercado por tags. 
-             Exemplo: [PROMPT_VISUAL] A luxury coffee cup on a marble table, cinematic lighting, 8k [/PROMPT_VISUAL]. 
-             NÃO use aspas ou Markdown dentro das tags."""),
+             DEPOIS das variações, você DEVE escrever UMA linha final contendo o melhor prompt em inglês.
+             REGRAS DA LINHA FINAL:
+             - Comece com [PROMPT_VISUAL]
+             - Escreva o prompt de forma contínua, SEM aspas, SEM asteriscos, SEM negrito.
+             - Termine com [/PROMPT_VISUAL]
+             EXEMPLO: [PROMPT_VISUAL] A professional photo of an organic coffee cup on a wooden table, high quality, cinematic lighting [/PROMPT_VISUAL]"""),
             ("social", "Social Media", f"Monte um cronograma de 5 dias.")
         ]
 
@@ -130,8 +133,8 @@ if btn_iniciar:
                 with escritorio_container:
                     components.html(render_office(st.session_state.status, dict_sel), height=400)
 
-                ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert Sênior focado em entregar resultados limpos.", llm=llm)
-                ts = Task(description=f"{task_desc}\nContexto: {contexto}", expected_output="Um relatório profissional seguindo rigorosamente as instruções de formato.", agent=ag)
+                ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert Sênior focado em precisão técnica.", llm=llm)
+                ts = Task(description=f"{task_desc}\nContexto: {contexto}", expected_output="Um relatório limpo seguindo o formato solicitado.", agent=ag)
                 res = Crew(agents=[ag], tasks=[ts]).kickoff()
                 
                 st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
@@ -154,21 +157,25 @@ if st.session_state.resultado_final:
     
     if st.session_state.prompt_limpo:
         st.divider()
-        st.subheader("🎨 Conceito Visual Sugerido")
+        st.subheader("🎨 Amostra Visual da Identidade")
         
-        with st.expander("🔍 Ver detalhes do Prompt Gerado"):
-            st.code(st.session_state.prompt_limpo, language="text")
+        # Gerar a URL uma única vez
+        prompt_para_url = urllib.parse.quote(st.session_state.prompt_limpo)
+        # Usamos uma URL simplificada para evitar bugs de parâmetros
+        url_final = f"https://pollinations.ai/p/{prompt_para_url}?width=1024&height=1024&model=flux&nologo=true"
+        
+        col_img, col_txt = st.columns([2, 1])
+        
+        with col_img:
+            # Exibe a imagem
+            st.image(url_final, use_container_width=True)
             
-        if st.button("🖼️ Gerar Amostra Visual agora"):
-            with st.spinner("Conectando ao motor de renderização..."):
-                encoded_prompt = urllib.parse.quote(st.session_state.prompt_limpo)
-                # Adicionado seed aleatório para garantir que a imagem mude se o prompt mudar
-                seed = int(time.time())
-                img_url = f"https://pollinations.ai/p/{encoded_prompt}?width=1024&height=1024&model=flux&seed={seed}"
-                
-                # Container para a imagem com tratamento de erro visual
-                st.image(img_url, caption="Identidade Visual Gerada pela IA", use_container_width=True)
-                st.info("💡 Dica: Se a imagem não aparecer, tente clicar novamente. O servidor do Pollinations pode levar alguns segundos para processar.")
+        with col_txt:
+            st.write("**Ficha Técnica do Visual:**")
+            st.caption(st.session_state.prompt_limpo)
+            # Botão de auxílio caso a imagem quebre
+            st.link_button("🔗 Ver Imagem em Tela Cheia", url_final)
+            
         st.divider()
 
     st.markdown("### 📄 Relatório Estratégico")
