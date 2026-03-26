@@ -1,6 +1,7 @@
 crewai
-crewai-tools
 litellm
 streamlit
 fpdf2
 duckduckgo-search
+langchain-community
+
