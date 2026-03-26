@@ -2,10 +2,20 @@ import streamlit as st
 import streamlit.components.v1 as components
 from crewai import Agent, Task, Crew, LLM
 from fpdf import FPDF
-import time # Importante para as pausas
+import time
 
 # Configuração da Página
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
+
+# ==========================================
+# FUNÇÃO PARA RESETAR O APP
+# ==========================================
+def nova_campanha():
+    st.session_state.resultado_final = ""
+    for k in st.session_state.status:
+        st.session_state.status[k] = "espera"
+    # Opcional: st.rerun() limpa a interface visual imediatamente
+    st.rerun()
 
 # ==========================================
 # FUNÇÃO PARA GERAR O PDF
@@ -13,7 +23,6 @@ st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout=
 def gerar_pdf(texto):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_font("Arial", size=11)
     pdf.set_font("Arial", 'B', 16)
     pdf.cell(200, 10, txt="Relatorio de Estrategia - Agencia IA", ln=True, align='C')
     pdf.ln(10)
@@ -50,16 +59,22 @@ def render_office(status_agentes, selecionados):
     return f"""<style>.office-grid {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; width: 150px; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 11px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333; white-space: nowrap;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 140px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
 
 # ==========================================
-# INICIALIZAÇÃO
+# INICIALIZAÇÃO DE ESTADO
 # ==========================================
 if 'resultado_final' not in st.session_state: st.session_state.resultado_final = ""
 if 'status' not in st.session_state: st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
 
+# ==========================================
+# SIDEBAR
+# ==========================================
 with st.sidebar:
-    st.header("⚙️ Configurações")
-    groq_key = st.text_input("Groq API Key", type="password")
-    tema = st.text_area("Tema da campanha", placeholder="Ex: Hamburgueria artesanal")
-    st.subheader("👥 Selecione o Time")
+    st.header("⚙️ Painel de Controle")
+    groq_key = st.text_input("🔑 Groq API Key", type="password")
+    
+    # Para resetar o texto do tema, usamos uma chave no session_state
+    tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Café artesanal orgânico")
+    
+    st.subheader("👥 Time Ativo")
     dict_selecionados = {
         "pesquisador": st.checkbox("Pesquisador", True),
         "diretor": st.checkbox("Dir. Criativo", True),
@@ -67,15 +82,21 @@ with st.sidebar:
         "engenheiro": st.checkbox("Eng. Prompts", True),
         "social": st.checkbox("Social Media", True)
     }
-    btn_iniciar = st.button("🚀 Iniciar Ciclo de Trabalho")
+    
+    col_btn1, col_btn2 = st.columns(2)
+    with col_btn1:
+        btn_iniciar = st.button("🚀 Iniciar", use_container_width=True)
+    with col_btn2:
+        # Botão de Reset na Sidebar
+        st.button("🧹 Resetar", on_click=nova_campanha, use_container_width=True)
 
-st.title("🤖 Agência IA Corporativa")
+st.title("🤖 Escritório Digital IA")
 escritorio_container = st.empty()
 with escritorio_container:
     components.html(render_office(st.session_state.status, dict_selecionados), height=400)
 
 # ==========================================
-# LOGICA PRINCIPAL COM PROTEÇÃO DE TAXA
+# LÓGICA DE EXECUÇÃO
 # ==========================================
 if btn_iniciar:
     if not groq_key or not tema:
@@ -84,72 +105,60 @@ if btn_iniciar:
         st.session_state.resultado_final = ""
         for k in st.session_state.status: st.session_state.status[k] = "espera"
         
-        # LLM com limites configurados
-        llm = LLM(
-            model="groq/llama-3.3-70b-versatile", 
-            api_key=groq_key,
-            max_tokens=2048 # Limita o tamanho da resposta para economizar TPM
-        )
+        llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key, max_tokens=2048)
         
         agentes_jobs = [
-            ("pesquisador", "Pesquisador", f"Analise o público e diferenciais para {tema}."),
-            ("diretor", "Dir. Criativo", f"Crie um Slogan e conceito criativo para {tema}."),
-            ("copywriter", "Copywriter", f"Escreva 3 legendas persuasivas para {tema}."),
-            ("engenheiro", "Eng. Prompts", f"Dê sua opinião estratégica visual e gere 3 prompts técnicos em INGLÊS para {tema}."),
-            ("social", "Social Media", f"Crie um cronograma de 5 dias integrando tudo para {tema}.")
+            ("pesquisador", "Pesquisador", f"Analise público e tendências para {tema}."),
+            ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}."),
+            ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
+            ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere 3 prompts técnicos em INGLÊS (Flux/Midjourney) para {tema}."),
+            ("social", "Social Media", f"Monte o cronograma de 5 dias integrando tudo para {tema}.")
         ]
 
         contexto_acumulado = ""
         try:
             for id_ag, nome_ag, task_desc in agentes_jobs:
                 if dict_selecionados[id_ag]:
-                    # Atualiza Status Visual
                     st.session_state.status[id_ag] = "trabalhando"
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
 
-                    # Tarefa
-                    tarefa_completa = f"{task_desc}\n\nContexto: {contexto_acumulado}"
-                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Especialista Sênior prático.", llm=llm)
-                    ts = Task(description=tarefa_completa, expected_output="Entrega curta e direta.", agent=ag)
+                    tarefa_completa = f"{task_desc}\n\nContexto da equipe: {contexto_acumulado}"
+                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Sênior focado em entregas reais.", llm=llm)
+                    ts = Task(description=tarefa_completa, expected_output="Entrega técnica e criativa.", agent=ag)
                     
-                    # PROTEÇÃO 1: Definir max_rpm no Crew para evitar disparos rápidos
-                    crew = Crew(agents=[ag], tasks=[ts], max_rpm=10) # No máximo 10 requisições por minuto
-                    
+                    crew = Crew(agents=[ag], tasks=[ts], max_rpm=10)
                     res = crew.kickoff()
                     
-                    # Salva
-                    st.session_state.resultado_final += f"--- {nome_ag.upper()} ---\n{res.raw}\n\n"
+                    st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
                     contexto_acumulado += f"\n[{nome_ag}: {res.raw}]"
                     
-                    # Conclui Agente
                     st.session_state.status[id_ag] = "concluido"
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
                     
-                    # PROTEÇÃO 2: Pausa de segurança entre agentes (Cool-down)
-                    # Isso evita que o segundo agente bata no limite de tokens do primeiro
-                    with st.spinner(f"{nome_ag} terminou. Preparando próximo agente..."):
-                        time.sleep(10) # 10 segundos de descanso
+                    time.sleep(5) # Pausa técnica contra Rate Limit
 
-            st.success("🎯 Projeto finalizado!")
+            st.success("🎯 Trabalho Finalizado!")
 
         except Exception as e:
-            if "rate_limit" in str(e).lower():
-                st.error("🚨 Limite da Groq atingido! Aguarde 60 segundos e tente novamente. Dica: Use menos agentes por vez ou aumente a pausa no código.")
-            else:
-                st.error(f"Erro inesperado: {e}")
+            st.error(f"Ocorreu um erro ou limite atingido: {e}")
 
 # ==========================================
-# DOWNLOADS
+# EXIBIÇÃO E DOWNLOADS
 # ==========================================
 if st.session_state.resultado_final:
-    st.markdown("### 📄 Resultado Final")
+    st.markdown("### 📄 Relatório de Entrega")
     st.info(st.session_state.resultado_final)
-    col1, col2 = st.columns(2)
-    with col1: st.download_button("⬇️ TXT", st.session_state.resultado_final, "campanha.txt")
+    
+    col1, col2, col3 = st.columns(3)
+    with col1:
+        st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
     with col2:
         try:
             pdf_data = gerar_pdf(st.session_state.resultado_final)
-            st.download_button("⬇️ PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
-        except: st.warning("Erro ao gerar PDF.")
+            st.download_button("⬇️ Baixar PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
+        except: st.warning("Erro no PDF.")
+    with col3:
+        # Botão de Reset também no final do relatório para facilitar
+        st.button("🔄 Iniciar Nova Campanha", on_click=nova_campanha)
