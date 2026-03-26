@@ -2,3 +2,4 @@ crewai
 crewai-tools
 litellm
 streamlit
+fpdf2
