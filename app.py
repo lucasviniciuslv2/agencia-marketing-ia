@@ -3,24 +3,26 @@ import streamlit.components.v1 as components
 from crewai import Agent, Task, Crew, LLM
 from fpdf import FPDF
 import time
-import urllib.parse 
-
-# Tenta importar a ferramenta de busca da LangChain (mais estável)
-try:
-    from langchain_community.tools import DuckDuckGoSearchRun
-    search_tool = DuckDuckGoSearchRun()
-except ImportError:
-    search_tool = None
+import urllib.parse
+import re # Necessário para a limpeza do prompt
 
 # Configuração da Página
-st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
+st.set_page_config(page_title="Agência Marketing IA", page_icon="🏢", layout="wide")
 
 # ==========================================
-# FUNÇÕES DE APOIO
+# FUNÇÕES DE SUPORTE
 # ==========================================
+def extract_prompt(text):
+    """Busca o prompt técnico isolado dentro do relatório do agente"""
+    pattern = r"\[PROMPT_VISUAL\](.*?)\[/PROMPT_VISUAL\]"
+    match = re.search(pattern, text, re.DOTALL)
+    if match:
+        return match.group(1).strip()
+    return None
+
 def nova_campanha():
     st.session_state.resultado_final = ""
-    st.session_state.prompt_gerado = ""
+    st.session_state.prompt_limpo = None
     st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
     if "tema_input" in st.session_state:
         st.session_state["tema_input"] = ""
@@ -38,6 +40,7 @@ def gerar_pdf(texto):
     return pdf.output()
 
 def render_office(status_agentes, selecionados):
+    # (Mantemos sua função de escritório virtual original)
     agentes_config = [
         {"id": "pesquisador", "nome": "Pesquisador", "emoji": "🔍", "avatar": "👨‍💻"},
         {"id": "diretor", "nome": "Dir. Criativo", "emoji": "🎨", "avatar": "👩‍🎨"},
@@ -61,116 +64,113 @@ def render_office(status_agentes, selecionados):
     return f"""<style>.office-grid {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; width: 150px; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 11px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333; white-space: nowrap;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 140px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
 
 # ==========================================
-# INICIALIZAÇÃO
+# INICIALIZAÇÃO DE ESTADO
 # ==========================================
 if 'resultado_final' not in st.session_state: st.session_state.resultado_final = ""
-if 'prompt_gerado' not in st.session_state: st.session_state.prompt_gerado = ""
+if 'prompt_limpo' not in st.session_state: st.session_state.prompt_limpo = None
 if 'status' not in st.session_state: st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
 
+# ==========================================
+# SIDEBAR
+# ==========================================
 with st.sidebar:
-    st.header("⚙️ Painel de Controle")
+    st.header("⚙️ Configurações")
     groq_key = st.text_input("🔑 Groq API Key", type="password")
-    tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Hamburgueria", key="tema_input")
-    st.subheader("👥 Time Ativo")
-    dict_selecionados = {
-        "pesquisador": st.checkbox("Pesquisador (Web Search)", True),
+    tema = st.text_area("🎯 Tema da Campanha", key="tema_input")
+    st.subheader("👥 Selecione o Time")
+    dict_sel = {
+        "pesquisador": st.checkbox("Pesquisador", True),
         "diretor": st.checkbox("Dir. Criativo", True),
         "copywriter": st.checkbox("Copywriter", True),
-        "engenheiro": st.checkbox("Eng. Prompts (Image Gen)", True),
+        "engenheiro": st.checkbox("Eng. Prompts", True),
         "social": st.checkbox("Social Media", True)
     }
-    col_btn1, col_btn2 = st.columns(2)
-    with col_btn1: btn_iniciar = st.button("🚀 Iniciar", use_container_width=True)
-    with col_btn2: st.button("🧹 Resetar", on_click=nova_campanha, use_container_width=True)
+    col_b1, col_b2 = st.columns(2)
+    with col_b1: btn_iniciar = st.button("🚀 Iniciar")
+    with col_b2: st.button("🧹 Resetar", on_click=nova_campanha)
 
-st.title("🤖 Escritório Digital IA")
+st.title("🤖 Agência IA Corporativa")
 escritorio_container = st.empty()
 with escritorio_container:
-    components.html(render_office(st.session_state.status, dict_selecionados), height=400)
+    components.html(render_office(st.session_state.status, dict_sel), height=400)
 
 # ==========================================
-# LÓGICA DE EXECUÇÃO
+# EXECUÇÃO
 # ==========================================
 if btn_iniciar:
     if not groq_key or not tema:
         st.error("Preencha a chave e o tema!")
     else:
         st.session_state.resultado_final = ""
-        st.session_state.prompt_gerado = ""
+        st.session_state.prompt_limpo = None
         for k in st.session_state.status: st.session_state.status[k] = "espera"
         
         llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
         
-        # Define as ferramentas do Pesquisador
-        pesquisa_tools = [search_tool] if search_tool else []
-
+        # DEFINIÇÃO DAS TAREFAS
         agentes_jobs = [
-            ("pesquisador", "Pesquisador", f"PESQUISE NA WEB tendências atuais e público para {tema}.", pesquisa_tools),
-            ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}.", []),
-            ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}.", []),
-            ("engenheiro", "Eng. Prompts", f"Dê sua visão estratégica e gere apenas UM prompt técnico final em INGLÊS para {tema}.", []),
-            ("social", "Social Media", f"Monte o cronograma de 5 dias.", [])
+            ("pesquisador", "Pesquisador", f"Analise público e mercado para {tema}."),
+            ("diretor", "Dir. Criativo", f"Crie slogan e conceito para {tema}."),
+            ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
+            ("engenheiro", "Eng. Prompts", f"""Gere 3 prompts de imagem para {tema}. 
+             IMPORTANTE: No final do seu texto, escolha o melhor deles e coloque-o EXATAMENTE entre as tags: 
+             [PROMPT_VISUAL] texto do prompt em inglês aqui [/PROMPT_VISUAL]"""),
+            ("social", "Social Media", f"Monte um cronograma de 5 dias.")
         ]
 
-        contexto_acumulado = ""
-        status_log = st.status("🚀 Iniciando agência...", expanded=True)
-        
-        try:
-            for id_ag, nome_ag, task_desc, ag_tools in agentes_jobs:
-                if dict_selecionados[id_ag]:
-                    status_log.update(label=f"⚙️ {nome_ag} está trabalhando...", state="running")
-                    
-                    st.session_state.status[id_ag] = "trabalhando"
-                    with escritorio_container:
-                        components.html(render_office(st.session_state.status, dict_selecionados), height=400)
+        contexto = ""
+        log_status = st.status("🏗️ Processando campanha...")
 
-                    tarefa_completa = f"{task_desc}\n\nContexto: {contexto_acumulado}"
-                    
-                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert.", llm=llm, tools=ag_tools)
-                    ts = Task(description=tarefa_completa, expected_output="Resultado profissional.", agent=ag)
-                    
-                    res = Crew(agents=[ag], tasks=[ts], max_rpm=3).kickoff()
-                    
-                    if id_ag == "engenheiro":
-                        # Limpa o prompt para a imagem
-                        clean_p = res.raw.split("Prompt:")[-1] if "Prompt:" in res.raw else res.raw
-                        st.session_state.prompt_gerado = clean_p.strip()
+        for id_ag, nome_ag, task_desc in agentes_jobs:
+            if dict_sel[id_ag]:
+                log_status.update(label=f"⚙️ {nome_ag} trabalhando...")
+                st.session_state.status[id_ag] = "trabalhando"
+                with escritorio_container:
+                    components.html(render_office(st.session_state.status, dict_sel), height=400)
 
-                    st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
-                    contexto_acumulado += f"\n[{nome_ag}: {res.raw}]"
-                    
-                    st.session_state.status[id_ag] = "concluido"
-                    with escritorio_container:
-                        components.html(render_office(st.session_state.status, dict_selecionados), height=400)
-                    
-                    time.sleep(5) # Delay maior para evitar Rate Limit na Groq
+                ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert Sênior.", llm=llm)
+                ts = Task(description=f"{task_desc}\nContexto: {contexto}", expected_output="Entrega profissional.", agent=ag)
+                res = Crew(agents=[ag], tasks=[ts]).kickoff()
+                
+                # Armazena texto final
+                st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
+                contexto += f"\n[{nome_ag}: {res.raw}]"
 
-            status_log.update(label="🎯 Trabalho Finalizado!", state="complete", expanded=False)
+                # Lógica de Captura do Prompt (Regex)
+                if id_ag == "engenheiro":
+                    st.session_state.prompt_limpo = extract_prompt(res.raw)
+                
+                st.session_state.status[id_ag] = "concluido"
+                with escritorio_container:
+                    components.html(render_office(st.session_state.status, dict_sel), height=400)
+                time.sleep(1)
 
-        except Exception as e:
-            status_log.update(label="❌ Erro na execução", state="error")
-            st.error(f"Erro: {e}")
+        log_status.update(label="✅ Finalizado!", state="complete")
 
 # ==========================================
-# EXIBIÇÃO E IMAGEM
+# EXIBIÇÃO DE RESULTADOS
 # ==========================================
 if st.session_state.resultado_final:
     
-    if st.session_state.prompt_gerado:
-        st.markdown("### 🖼️ Conceito Visual Gerado")
-        p_limpo = st.session_state.prompt_gerado.replace("\n", " ").replace('"', '').replace('`', '').strip()
-        p_url = urllib.parse.quote(p_limpo)
-        image_url = f"https://pollinations.ai/p/{p_url}?width=1024&height=1024&model=flux"
-        st.image(image_url, caption="Arte conceitual gerada via Pollinations IA", use_container_width=True)
+    # 🎨 Geração de Imagem Opcional
+    if st.session_state.prompt_limpo:
+        st.divider()
+        st.subheader("🎨 Visualização da Campanha")
+        if st.button("🖼️ Gerar Amostra Visual (Opcional)"):
+            with st.spinner("Criando arte conceitual..."):
+                p_url = urllib.parse.quote(st.session_state.prompt_limpo.strip())
+                img_url = f"https://pollinations.ai/p/{p_url}?width=1024&height=1024&model=flux"
+                st.image(img_url, caption="Preview gerado via IA (Pollinations)", use_container_width=True)
+        st.divider()
 
-    st.markdown("### 📄 Relatório de Entrega")
+    st.markdown("### 📄 Relatório Completo")
     st.info(st.session_state.resultado_final)
     
-    c1, c2, c3 = st.columns(3)
-    with c1: st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
-    with c2:
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1: st.download_button("⬇️ TXT", st.session_state.resultado_final, "campanha.txt")
+    with col_d2:
         try:
             pdf_data = gerar_pdf(st.session_state.resultado_final)
-            st.download_button("⬇️ Baixar PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
+            st.download_button("⬇️ PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
         except: st.warning("Erro no PDF.")
-    with c3: st.button("🔄 Nova Campanha", on_click=nova_campanha)
+    with col_d3: st.button("🔄 Nova Campanha", on_click=nova_campanha)
