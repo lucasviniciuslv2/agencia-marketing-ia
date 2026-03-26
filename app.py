@@ -8,14 +8,18 @@ import time
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
 
 # ==========================================
-# FUNÇÃO PARA RESETAR O APP
+# FUNÇÃO PARA RESETAR O APP (CORRIGIDA)
 # ==========================================
 def nova_campanha():
+    # Limpa o resultado e os status
     st.session_state.resultado_final = ""
-    for k in st.session_state.status:
-        st.session_state.status[k] = "espera"
-    # Opcional: st.rerun() limpa a interface visual imediatamente
-    st.rerun()
+    st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
+    
+    # Limpa o campo de texto do tema (importante: o widget precisa ter a key 'tema_input')
+    if "tema_input" in st.session_state:
+        st.session_state["tema_input"] = ""
+    
+    # NÃO PRECISA DE st.rerun() AQUI! O callback já faz isso sozinho.
 
 # ==========================================
 # FUNÇÃO PARA GERAR O PDF
@@ -71,8 +75,8 @@ with st.sidebar:
     st.header("⚙️ Painel de Controle")
     groq_key = st.text_input("🔑 Groq API Key", type="password")
     
-    # Para resetar o texto do tema, usamos uma chave no session_state
-    tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Café artesanal orgânico")
+    # Adicionamos a KEY 'tema_input' para que a função nova_campanha consiga limpá-la
+    tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Café artesanal orgânico", key="tema_input")
     
     st.subheader("👥 Time Ativo")
     dict_selecionados = {
@@ -87,7 +91,7 @@ with st.sidebar:
     with col_btn1:
         btn_iniciar = st.button("🚀 Iniciar", use_container_width=True)
     with col_btn2:
-        # Botão de Reset na Sidebar
+        # Botão de Reset chamando a função nova_campanha
         st.button("🧹 Resetar", on_click=nova_campanha, use_container_width=True)
 
 st.title("🤖 Escritório Digital IA")
@@ -111,7 +115,7 @@ if btn_iniciar:
             ("pesquisador", "Pesquisador", f"Analise público e tendências para {tema}."),
             ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}."),
             ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
-            ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere 3 prompts técnicos em INGLÊS (Flux/Midjourney) para {tema}."),
+            ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere 3 prompts técnicos em INGLÊS para {tema}."),
             ("social", "Social Media", f"Monte o cronograma de 5 dias integrando tudo para {tema}.")
         ]
 
@@ -137,12 +141,12 @@ if btn_iniciar:
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
                     
-                    time.sleep(5) # Pausa técnica contra Rate Limit
+                    time.sleep(5) 
 
             st.success("🎯 Trabalho Finalizado!")
 
         except Exception as e:
-            st.error(f"Ocorreu um erro ou limite atingido: {e}")
+            st.error(f"Erro: {e}")
 
 # ==========================================
 # EXIBIÇÃO E DOWNLOADS
@@ -151,14 +155,14 @@ if st.session_state.resultado_final:
     st.markdown("### 📄 Relatório de Entrega")
     st.info(st.session_state.resultado_final)
     
-    col1, col2, col3 = st.columns(3)
-    with col1:
+    col_d1, col_d2, col_d3 = st.columns(3)
+    with col_d1:
         st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
-    with col2:
+    with col_d2:
         try:
             pdf_data = gerar_pdf(st.session_state.resultado_final)
             st.download_button("⬇️ Baixar PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
         except: st.warning("Erro no PDF.")
-    with col3:
-        # Botão de Reset também no final do relatório para facilitar
-        st.button("🔄 Iniciar Nova Campanha", on_click=nova_campanha)
+    with col_d3:
+        # Botão de Reset também no final
+        st.button("🔄 Nova Campanha", on_click=nova_campanha)
