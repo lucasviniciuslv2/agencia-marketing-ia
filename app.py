@@ -1,35 +1,35 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from crewai import Agent, Task, Crew, LLM
-from fpdf import FPDF # Importação para o PDF
+from fpdf import FPDF
 
 # Configuração da Página
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
 
 # ==========================================
-# FUNÇÃO PARA GERAR O PDF
+# FUNÇÃO PARA GERAR O PDF (Ajustada para fpdf2)
 # ==========================================
 def gerar_pdf(texto):
     pdf = FPDF()
     pdf.add_page()
-    pdf.set_auto_page_break(auto=True, margin=15)
-    
-    # Título do Relatório
-    pdf.set_font("Arial", 'B', 16)
-    pdf.cell(200, 10, txt="Relatorio de Campanha - Agencia IA", ln=True, align='C')
-    pdf.ln(10)
-    
-    # Corpo do texto
     pdf.set_font("Arial", size=12)
     
-    # Limpeza simples para evitar erros de caracteres especiais no FPDF básico
-    # (Em apps profissionais, carregaríamos uma fonte .ttf com suporte a UTF-8 completo)
-    texto_limpo = texto.replace('###', '').replace('**', '').replace('##', '')
+    # Título
+    pdf.set_font("Arial", 'B', 16)
+    pdf.cell(200, 10, txt="Relatorio de Campanha IA", ln=True, align='C')
+    pdf.ln(10)
     
-    # Escreve o texto no PDF (multi_cell lida com quebra de linha)
-    pdf.multi_cell(0, 10, txt=texto_limpo.encode('latin-1', 'replace').decode('latin-1'))
+    # Conteúdo
+    pdf.set_font("Arial", size=12)
+    # Remove caracteres que o PDF básico não entende
+    texto_limpo = texto.replace('###', '').replace('**', '').replace('##', '').replace('-', '')
     
-    return pdf.output(dest='S') # Retorna como string/bytes
+    # Tratamento de codificação para evitar erros de acentuação
+    line_text = texto_limpo.encode('latin-1', 'replace').decode('latin-1')
+    pdf.multi_cell(0, 10, txt=line_text)
+    
+    # Retorna os bytes do PDF
+    return pdf.output()
 
 # ==========================================
 # MOTOR VISUAL DO ESCRITÓRIO
@@ -64,6 +64,14 @@ def render_office(status_agentes, selecionados):
     return f"""<style>.office-grid {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 12px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 150px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
 
 # ==========================================
+# INICIALIZAÇÃO DA MEMÓRIA (SESSION STATE)
+# ==========================================
+if 'resultado_final' not in st.session_state:
+    st.session_state.resultado_final = ""
+if 'status' not in st.session_state:
+    st.session_state.status = {"pesquisador": "espera", "diretor": "espera", "copywriter": "espera", "engenheiro": "espera", "social": "espera"}
+
+# ==========================================
 # SIDEBAR
 # ==========================================
 with st.sidebar:
@@ -71,78 +79,58 @@ with st.sidebar:
     groq_key = st.text_input("Groq API Key", type="password")
     tema = st.text_area("Tema da campanha")
     st.subheader("👥 Selecione o Time")
-    sel_pesquisador = st.checkbox("Pesquisador", True)
-    sel_diretor = st.checkbox("Dir. Criativo", True)
+    sel_pesq = st.checkbox("Pesquisador", True)
+    sel_dir = st.checkbox("Dir. Criativo", True)
     sel_copy = st.checkbox("Copywriter", True)
     sel_eng = st.checkbox("Eng. Prompts", True)
-    sel_social = st.checkbox("Social Media", True)
-    dict_selecionados = {"pesquisador": sel_pesquisador, "diretor": sel_diretor, "copywriter": sel_copy, "engenheiro": sel_eng, "social": sel_social}
+    sel_soc = st.checkbox("Social Media", True)
+    dict_selecionados = {"pesquisador": sel_pesq, "diretor": sel_dir, "copywriter": sel_copy, "engenheiro": sel_eng, "social": sel_soc}
 
 st.title("🤖 Agência Marketing IA")
 
-if 'status' not in st.session_state:
-    st.session_state.status = {k: "espera" for k in dict_selecionados.keys()}
-
+# Renderiza Escritório
 escritorio_container = st.empty()
 with escritorio_container:
     components.html(render_office(st.session_state.status, dict_selecionados), height=350)
 
 # ==========================================
-# EXECUÇÃO
+# BOTÃO DE INICIAR
 # ==========================================
 if st.button("🚀 Iniciar Agência"):
     if not groq_key or not tema:
         st.error("Preencha a chave e o tema!")
-        st.stop()
+    else:
+        st.session_state.resultado_final = "" # Limpa resultado anterior
+        llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
+        
+        agentes_jobs = [
+            ("pesquisador", "Pesquisador", f"Analise o mercado para {tema}"),
+            ("diretor", "Diretor Criativo", f"Conceito e slogan para {tema}"),
+            ("copywriter", "Copywriter", f"Legendas para {tema}"),
+            ("engenheiro", "Eng. Prompts", f"Prompts IA em inglês para {tema}"),
+            ("social", "Social Media", f"Cronograma para {tema}")
+        ]
 
-    llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
-    resultado_final = ""
+        for id_ag, nome_ag, task_desc in agentes_jobs:
+            if dict_selecionados[id_ag]:
+                st.session_state.status[id_ag] = "trabalhando"
+                with escritorio_container:
+                    components.html(render_office(st.session_state.status, dict_selecionados), height=350)
 
-    agentes_jobs = [
-        ("pesquisador", "Pesquisador", f"Pesquise tendências para {tema}"),
-        ("diretor", "Diretor Criativo", f"Crie slogan e conceito para {tema}"),
-        ("copywriter", "Copywriter", f"Escreva 3 legendas para {tema}"),
-        ("engenheiro", "Eng. Prompts", f"Prompts de imagem em inglês para {tema}"),
-        ("social", "Social Media", f"Cronograma de posts para {tema}")
-    ]
+                ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert", llm=llm)
+                ts = Task(description=task_desc, expected_output="Resumo curto.", agent=ag)
+                res = Crew(agents=[ag], tasks=[ts]).kickoff()
+                
+                st.session_state.resultado_final += f"--- {nome_ag.upper()} ---\n{res.raw}\n\n"
+                st.session_state.status[id_ag] = "concluido"
+                
+                with escritorio_container:
+                    components.html(render_office(st.session_state.status, dict_selecionados), height=350)
+        
+        st.success("Trabalho concluído!")
 
-    for id_ag, nome_ag, task_desc in agentes_jobs:
-        if dict_selecionados[id_ag]:
-            st.session_state.status[id_ag] = "trabalhando"
-            with escritorio_container:
-                components.html(render_office(st.session_state.status, dict_selecionados), height=350)
-
-            ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert", llm=llm)
-            ts = Task(description=task_desc, expected_output="Resultado curto.", agent=ag)
-            crew = Crew(agents=[ag], tasks=[ts])
-            res = crew.kickoff()
-            
-            resultado_final += f"--- {nome_ag.upper()} ---\n{res.raw}\n\n"
-
-            st.session_state.status[id_ag] = "concluido"
-            with escritorio_container:
-                components.html(render_office(st.session_state.status, dict_selecionados), height=350)
-
-    st.success("✅ Campanha concluída!")
-    st.markdown(resultado_final)
-
-    # COLUNAS PARA OS BOTÕES
-    col1, col2 = st.columns(2)
-    
-    with col1:
-        st.download_button(
-            label="⬇️ Baixar em TXT",
-            data=resultado_final,
-            file_name="campanha.txt",
-            mime="text/plain"
-        )
-    
-    with col2:
-        # Gera os bytes do PDF
-        pdf_bytes = gerar_pdf(resultado_final)
-        st.download_button(
-            label="⬇️ Baixar em PDF",
-            data=pdf_bytes,
-            file_name="campanha.pdf",
-            mime="application/pdf"
-        )
+# ==========================================
+# EXIBIÇÃO DOS RESULTADOS E DOWNLOADS (FORA DO BOTÃO START)
+# ==========================================
+if st.session_state.resultado_final:
+    st.markdown("### 📄 Relatório
