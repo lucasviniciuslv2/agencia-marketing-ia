@@ -1,16 +1,16 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from crewai import Agent, Task, Crew, LLM
-from crewai_tools import DuckDuckGoSearchRun # Ferramenta de busca grátis
+from crewai_tools import DuckDuckGoSearchTool # O NOME CORRETO É ESTE
 from fpdf import FPDF
 import time
-import urllib.parse # Para codificar o prompt da imagem
+import urllib.parse 
 
 # Configuração da Página
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
 
-# Inicializa a ferramenta de busca
-search_tool = DuckDuckGoSearchRun()
+# Inicializa a ferramenta de busca corrigida
+search_tool = DuckDuckGoSearchTool()
 
 # ==========================================
 # FUNÇÕES DE APOIO
@@ -98,21 +98,20 @@ if btn_iniciar:
         
         llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
         
+        # Tarefas
         agentes_jobs = [
-            ("pesquisador", "Pesquisador", f"PESQUISE NA WEB tendências atuais, concorrentes e público para {tema}.", [search_tool]),
+            ("pesquisador", "Pesquisador", f"PESQUISE NA WEB tendências atuais e público para {tema}.", [search_tool]),
             ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}."),
             ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
             ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere apenas UM prompt técnico final em INGLÊS para {tema}."),
-            ("social", "Social Media", f"Monte o cronograma de 5 dias integrando tudo.")
+            ("social", "Social Media", f"Monte o cronograma de 5 dias.")
         ]
 
         contexto_acumulado = ""
-        
-        # O TEXTINHO DE STATUS VOLTOU AQUI
         status_log = st.status("🚀 Iniciando agência...", expanded=True)
         
         try:
-            for id_ag, nome_ag, task_desc, *tools in agentes_jobs:
+            for id_ag, nome_ag, task_desc, *extra in agentes_jobs:
                 if dict_selecionados[id_ag]:
                     status_log.update(label=f"⚙️ {nome_ag} está trabalhando...", state="running")
                     
@@ -120,17 +119,18 @@ if btn_iniciar:
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
 
-                    tarefa_completa = f"{task_desc}\n\nContexto da equipe: {contexto_acumulado}"
-                    ag_tools = tools[0] if tools else []
+                    tarefa_completa = f"{task_desc}\n\nContexto: {contexto_acumulado}"
+                    ag_tools = extra[0] if extra else []
                     
-                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Sênior Expert.", llm=llm, tools=ag_tools)
-                    ts = Task(description=tarefa_completa, expected_output="Entrega técnica.", agent=ag)
+                    ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert.", llm=llm, tools=ag_tools)
+                    ts = Task(description=tarefa_completa, expected_output="Resultado profissional.", agent=ag)
                     
                     res = Crew(agents=[ag], tasks=[ts], max_rpm=5).kickoff()
                     
-                    # Se for o engenheiro, tentamos extrair o prompt para a imagem
                     if id_ag == "engenheiro":
-                        st.session_state.prompt_gerado = res.raw
+                        # Tenta limpar o prompt de blocos de código se houver
+                        clean_prompt = res.raw.replace('```', '').replace('prompt:', '').strip()
+                        st.session_state.prompt_gerado = clean_prompt
 
                     st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
                     contexto_acumulado += f"\n[{nome_ag}: {res.raw}]"
@@ -152,25 +152,21 @@ if btn_iniciar:
 # ==========================================
 if st.session_state.resultado_final:
     
-    # GERADOR DE IMAGEM (NOVO)
     if st.session_state.prompt_gerado:
         st.markdown("### 🖼️ Conceito Visual Gerado")
-        # Limpa o prompt para a URL (remove aspas e quebras de linha)
-        prompt_limpo = st.session_state.prompt_gerado.replace("\n", " ").replace('"', '')
-        prompt_url = urllib.parse.quote(prompt_limpo)
-        # URL do Pollinations.ai (Grátis e sem chave)
-        image_url = f"https://pollinations.ai/p/{prompt_url}?width=1024&height=1024&model=flux"
-        
-        st.image(image_url, caption="Imagem sugerida pela IA para sua campanha", use_container_width=True)
+        p_limpo = st.session_state.prompt_gerado.replace("\n", " ").replace('"', '').strip()
+        p_url = urllib.parse.quote(p_limpo)
+        image_url = f"https://pollinations.ai/p/{p_url}?width=1024&height=1024&model=flux"
+        st.image(image_url, caption="Arte conceitual gerada via Pollinations IA", use_container_width=True)
 
     st.markdown("### 📄 Relatório de Entrega")
     st.info(st.session_state.resultado_final)
     
-    col_d1, col_d2, col_d3 = st.columns(3)
-    with col_d1: st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
-    with col_d2:
+    c1, c2, c3 = st.columns(3)
+    with c1: st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha.txt")
+    with c2:
         try:
             pdf_data = gerar_pdf(st.session_state.resultado_final)
             st.download_button("⬇️ Baixar PDF", bytes(pdf_data), "campanha.pdf", "application/pdf")
         except: st.warning("Erro no PDF.")
-    with col_d3: st.button("🔄 Nova Campanha", on_click=nova_campanha)
+    with c3: st.button("🔄 Nova Campanha", on_click=nova_campanha)
