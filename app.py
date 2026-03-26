@@ -1,16 +1,19 @@
 import streamlit as st
 import streamlit.components.v1 as components
 from crewai import Agent, Task, Crew, LLM
-from crewai_tools import DuckDuckGoSearchTool # O NOME CORRETO É ESTE
 from fpdf import FPDF
 import time
 import urllib.parse 
 
+# Tenta importar a ferramenta de busca da LangChain (mais estável)
+try:
+    from langchain_community.tools import DuckDuckGoSearchRun
+    search_tool = DuckDuckGoSearchRun()
+except ImportError:
+    search_tool = None
+
 # Configuração da Página
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
-
-# Inicializa a ferramenta de busca corrigida
-search_tool = DuckDuckGoSearchTool()
 
 # ==========================================
 # FUNÇÕES DE APOIO
@@ -67,7 +70,7 @@ if 'status' not in st.session_state: st.session_state.status = {k: "espera" for 
 with st.sidebar:
     st.header("⚙️ Painel de Controle")
     groq_key = st.text_input("🔑 Groq API Key", type="password")
-    tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Café artesanal orgânico", key="tema_input")
+    tema = st.text_area("🎯 Tema da Campanha", placeholder="Ex: Hamburgueria", key="tema_input")
     st.subheader("👥 Time Ativo")
     dict_selecionados = {
         "pesquisador": st.checkbox("Pesquisador (Web Search)", True),
@@ -98,20 +101,22 @@ if btn_iniciar:
         
         llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
         
-        # Tarefas
+        # Define as ferramentas do Pesquisador
+        pesquisa_tools = [search_tool] if search_tool else []
+
         agentes_jobs = [
-            ("pesquisador", "Pesquisador", f"PESQUISE NA WEB tendências atuais e público para {tema}.", [search_tool]),
-            ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}."),
-            ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
-            ("engenheiro", "Eng. Prompts", f"Dê sua visão artística e gere apenas UM prompt técnico final em INGLÊS para {tema}."),
-            ("social", "Social Media", f"Monte o cronograma de 5 dias.")
+            ("pesquisador", "Pesquisador", f"PESQUISE NA WEB tendências atuais e público para {tema}.", pesquisa_tools),
+            ("diretor", "Dir. Criativo", f"Crie slogan e conceito central para {tema}.", []),
+            ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}.", []),
+            ("engenheiro", "Eng. Prompts", f"Dê sua visão estratégica e gere apenas UM prompt técnico final em INGLÊS para {tema}.", []),
+            ("social", "Social Media", f"Monte o cronograma de 5 dias.", [])
         ]
 
         contexto_acumulado = ""
         status_log = st.status("🚀 Iniciando agência...", expanded=True)
         
         try:
-            for id_ag, nome_ag, task_desc, *extra in agentes_jobs:
+            for id_ag, nome_ag, task_desc, ag_tools in agentes_jobs:
                 if dict_selecionados[id_ag]:
                     status_log.update(label=f"⚙️ {nome_ag} está trabalhando...", state="running")
                     
@@ -120,17 +125,16 @@ if btn_iniciar:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
 
                     tarefa_completa = f"{task_desc}\n\nContexto: {contexto_acumulado}"
-                    ag_tools = extra[0] if extra else []
                     
                     ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert.", llm=llm, tools=ag_tools)
                     ts = Task(description=tarefa_completa, expected_output="Resultado profissional.", agent=ag)
                     
-                    res = Crew(agents=[ag], tasks=[ts], max_rpm=5).kickoff()
+                    res = Crew(agents=[ag], tasks=[ts], max_rpm=3).kickoff()
                     
                     if id_ag == "engenheiro":
-                        # Tenta limpar o prompt de blocos de código se houver
-                        clean_prompt = res.raw.replace('```', '').replace('prompt:', '').strip()
-                        st.session_state.prompt_gerado = clean_prompt
+                        # Limpa o prompt para a imagem
+                        clean_p = res.raw.split("Prompt:")[-1] if "Prompt:" in res.raw else res.raw
+                        st.session_state.prompt_gerado = clean_p.strip()
 
                     st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
                     contexto_acumulado += f"\n[{nome_ag}: {res.raw}]"
@@ -139,7 +143,7 @@ if btn_iniciar:
                     with escritorio_container:
                         components.html(render_office(st.session_state.status, dict_selecionados), height=400)
                     
-                    time.sleep(2) 
+                    time.sleep(5) # Delay maior para evitar Rate Limit na Groq
 
             status_log.update(label="🎯 Trabalho Finalizado!", state="complete", expanded=False)
 
@@ -154,7 +158,7 @@ if st.session_state.resultado_final:
     
     if st.session_state.prompt_gerado:
         st.markdown("### 🖼️ Conceito Visual Gerado")
-        p_limpo = st.session_state.prompt_gerado.replace("\n", " ").replace('"', '').strip()
+        p_limpo = st.session_state.prompt_gerado.replace("\n", " ").replace('"', '').replace('`', '').strip()
         p_url = urllib.parse.quote(p_limpo)
         image_url = f"https://pollinations.ai/p/{p_url}?width=1024&height=1024&model=flux"
         st.image(image_url, caption="Arte conceitual gerada via Pollinations IA", use_container_width=True)
