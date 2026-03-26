@@ -10,32 +10,39 @@ import re
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🏢", layout="wide")
 
 # ==========================================
-# FUNÇÕES DE SUPORTE (EXTRAÇÃO INTELIGENTE)
+# FUNÇÕES DE SUPORTE (EXTRAÇÃO ULTRA-RESILIENTE)
 # ==========================================
 def extrair_e_limpar_prompt(texto_bruto):
-    """Tenta extrair o prompt por tags, se falhar, pega o último parágrafo"""
-    # 1. Tenta extrair pelas tags (flexível com espaços)
+    """Tenta extrair o prompt de várias formas diferentes"""
+    # 1. Tenta por Tags (Ignorando espaços e maiúsculas)
     match = re.search(r"\[\s*PROMPT_VISUAL\s*\](.*?)\[\s*/PROMPT_VISUAL\s*\]", texto_bruto, re.DOTALL | re.IGNORECASE)
-    
     if match:
         prompt = match.group(1).strip()
     else:
-        # 2. PLANO B: Pega o último parágrafo que tenha mais de 20 caracteres
-        paragrafos = [p.strip() for p in texto_bruto.split('\n') if len(p.strip()) > 20]
-        prompt = paragrafos[-1] if paragrafos else ""
+        # 2. PLANO B: Procura parágrafos que contenham palavras típicas de prompts IA
+        paragrafos = [p.strip() for p in texto_bruto.split('\n') if len(p.strip()) > 15]
+        palavras_chave = ['8k', 'photorealistic', 'cinematic', 'lighting', 'render', 'detailed', 'hyper-realistic']
+        
+        prompt = ""
+        for p in reversed(paragrafos):
+            if any(word in p.lower() for word in palavras_chave):
+                prompt = p
+                break
+        
+        # 3. PLANO C: Se nada funcionar, pega o último parágrafo longo
+        if not prompt and paragrafos:
+            prompt = paragrafos[-1]
 
-    # 3. Limpeza Final (Sanitização)
-    # Remove markdown (**), aspas ("), caracteres especiais e deixa apenas texto básico
-    prompt = re.sub(r'[\*\#\"\'\`\-\_]', '', prompt)
-    # Remove prefixos teimosos
-    prompt = re.sub(r'^(Prompt|Visual|Descrição):', '', prompt, flags=re.IGNORECASE).strip()
+    # Limpeza final de caracteres que quebram a URL
+    prompt = re.sub(r'[\*\#\"\'\`\-\_\[\]]', '', prompt)
+    prompt = re.sub(r'^(Prompt|Visual|Descrição|Output):', '', prompt, flags=re.IGNORECASE).strip()
     
-    # Se o prompt for muito curto, retorna None para não quebrar a URL
-    return prompt if len(prompt) > 5 else None
+    return prompt if len(prompt) > 10 else None
 
 def nova_campanha():
     st.session_state.resultado_final = ""
     st.session_state.prompt_limpo = None
+    st.session_state.raw_engenheiro = "" # Nova variável para debug
     st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
     if "tema_input" in st.session_state:
         st.session_state["tema_input"] = ""
@@ -53,6 +60,7 @@ def gerar_pdf(texto):
     return pdf.output()
 
 def render_office(status_agentes, selecionados):
+    # (Sua função de escritório virtual original)
     agentes_config = [
         {"id": "pesquisador", "nome": "Pesquisador", "emoji": "🔍", "avatar": "👨‍💻"},
         {"id": "diretor", "nome": "Dir. Criativo", "emoji": "🎨", "avatar": "👩‍🎨"},
@@ -80,6 +88,7 @@ def render_office(status_agentes, selecionados):
 # ==========================================
 if 'resultado_final' not in st.session_state: st.session_state.resultado_final = ""
 if 'prompt_limpo' not in st.session_state: st.session_state.prompt_limpo = None
+if 'raw_engenheiro' not in st.session_state: st.session_state.raw_engenheiro = ""
 if 'status' not in st.session_state: st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
 
 with st.sidebar:
@@ -103,7 +112,7 @@ with escritorio_container:
     components.html(render_office(st.session_state.status, dict_sel), height=400)
 
 # ==========================================
-# EXECUÇÃO
+# LÓGICA DE EXECUÇÃO
 # ==========================================
 if btn_iniciar:
     if not groq_key or not tema:
@@ -111,6 +120,7 @@ if btn_iniciar:
     else:
         st.session_state.resultado_final = ""
         st.session_state.prompt_limpo = None
+        st.session_state.raw_engenheiro = ""
         for k in st.session_state.status: st.session_state.status[k] = "espera"
         
         llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
@@ -119,8 +129,9 @@ if btn_iniciar:
             ("pesquisador", "Pesquisador", f"Analise público e mercado para {tema}."),
             ("diretor", "Dir. Criativo", f"Crie slogan e conceito para {tema}."),
             ("copywriter", "Copywriter", f"Escreva 3 legendas de Instagram para {tema}."),
-            ("engenheiro", "Eng. Prompts", f"""Gere 3 variações de prompts para {tema}. 
-             No final, escreva o melhor prompt técnico em INGLÊS entre as tags [PROMPT_VISUAL] e [/PROMPT_VISUAL]."""),
+            ("engenheiro", "Eng. Prompts", f"""Gere um prompt técnico em INGLÊS para uma imagem épica de {tema}. 
+             VOCÊ DEVE OBRIGATORIAMENTE colocar o prompt final dentro das tags [PROMPT_VISUAL] e [/PROMPT_VISUAL].
+             Exemplo: [PROMPT_VISUAL] photorealistic cafe shop, golden hour, 8k [/PROMPT_VISUAL]"""),
             ("social", "Social Media", f"Monte um cronograma de 5 dias.")
         ]
 
@@ -134,14 +145,15 @@ if btn_iniciar:
                 with escritorio_container:
                     components.html(render_office(st.session_state.status, dict_sel), height=400)
 
-                ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert Sênior.", llm=llm)
-                ts = Task(description=f"{task_desc}\nContexto: {contexto}", expected_output="Um relatório limpo.", agent=ag)
+                ag = Agent(role=nome_ag, goal=task_desc, backstory="Especialista Sênior em Marketing.", llm=llm)
+                ts = Task(description=f"{task_desc}\nContexto: {contexto}", expected_output="Resultado profissional.", agent=ag)
                 res = Crew(agents=[ag], tasks=[ts]).kickoff()
                 
                 st.session_state.resultado_final += f"### {nome_ag.upper()}\n{res.raw}\n\n---\n"
                 contexto += f"\n[{nome_ag}: {res.raw}]"
 
                 if id_ag == "engenheiro":
+                    st.session_state.raw_engenheiro = res.raw # Guarda para debug
                     st.session_state.prompt_limpo = extrair_e_limpar_prompt(res.raw)
                 
                 st.session_state.status[id_ag] = "concluido"
@@ -156,25 +168,26 @@ if btn_iniciar:
 # ==========================================
 if st.session_state.resultado_final:
     
-    # 🎨 Geração de Imagem
+    # 🎨 GERAÇÃO DE IMAGEM MELHORADA
     if st.session_state.prompt_limpo:
         st.divider()
-        st.subheader("🎨 Amostra Visual da Identidade")
+        st.subheader("🎨 Amostra Visual da Campanha")
         
-        # Codificação segura
         p_url = urllib.parse.quote(st.session_state.prompt_limpo)
-        url_final = f"https://pollinations.ai/p/{p_url}?width=1024&height=1024&model=flux&seed={int(time.time())}"
+        img_url = f"https://pollinations.ai/p/{p_url}?width=1024&height=1024&model=flux"
         
         col_img, col_txt = st.columns([2, 1])
         with col_img:
-            st.image(url_final, use_container_width=True)
+            st.image(img_url, caption="Identidade Visual Sugerida", use_container_width=True)
         with col_txt:
-            st.write("**Prompt Detectado:**")
-            st.info(st.session_state.prompt_limpo)
-            st.link_button("🚀 Abrir Link Direto da Imagem", url_final)
+            st.info(f"**Prompt extraído:** {st.session_state.prompt_limpo}")
+            st.link_button("🚀 Abrir imagem externa", img_url)
         st.divider()
     else:
-        st.warning("⚠️ O Engenheiro não gerou um prompt válido para a imagem.")
+        # BOTÃO DE DEBUG CASO FALHE
+        st.warning("⚠️ O sistema não detectou o prompt da imagem no texto do Engenheiro.")
+        with st.expander("🛠️ Ver texto bruto do Engenheiro (Debug)"):
+            st.write(st.session_state.raw_engenheiro if st.session_state.raw_engenheiro else "Nenhum texto gerado.")
 
     st.markdown("### 📄 Relatório Estratégico")
     st.info(st.session_state.resultado_final)
