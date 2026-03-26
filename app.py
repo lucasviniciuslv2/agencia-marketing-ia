@@ -7,7 +7,7 @@ from fpdf import FPDF
 st.set_page_config(page_title="Agência Marketing IA", page_icon="🤖", layout="wide")
 
 # ==========================================
-# FUNÇÃO PARA GERAR O PDF (Ajustada para fpdf2)
+# FUNÇÃO PARA GERAR O PDF
 # ==========================================
 def gerar_pdf(texto):
     pdf = FPDF()
@@ -21,7 +21,7 @@ def gerar_pdf(texto):
     
     # Conteúdo
     pdf.set_font("Arial", size=12)
-    # Remove caracteres que o PDF básico não entende
+    # Remove caracteres que o PDF básico não entende (Markdown)
     texto_limpo = texto.replace('###', '').replace('**', '').replace('##', '').replace('-', '')
     
     # Tratamento de codificação para evitar erros de acentuação
@@ -32,7 +32,7 @@ def gerar_pdf(texto):
     return pdf.output()
 
 # ==========================================
-# MOTOR VISUAL DO ESCRITÓRIO
+# MOTOR VISUAL DO ESCRITÓRIO (HTML/CSS)
 # ==========================================
 def render_office(status_agentes, selecionados):
     agentes_config = [
@@ -61,10 +61,10 @@ def render_office(status_agentes, selecionados):
             <div class="chao-madeira"></div>
         </div>
         """
-    return f"""<style>.office-grid {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 12px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 150px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
+    return f"""<style>.office-grid {{display: grid; grid-template_columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 12px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 150px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
 
 # ==========================================
-# INICIALIZAÇÃO DA MEMÓRIA (SESSION STATE)
+# INICIALIZAÇÃO DA MEMÓRIA
 # ==========================================
 if 'resultado_final' not in st.session_state:
     st.session_state.resultado_final = ""
@@ -88,7 +88,6 @@ with st.sidebar:
 
 st.title("🤖 Agência Marketing IA")
 
-# Renderiza Escritório
 escritorio_container = st.empty()
 with escritorio_container:
     components.html(render_office(st.session_state.status, dict_selecionados), height=350)
@@ -100,14 +99,14 @@ if st.button("🚀 Iniciar Agência"):
     if not groq_key or not tema:
         st.error("Preencha a chave e o tema!")
     else:
-        st.session_state.resultado_final = "" # Limpa resultado anterior
+        st.session_state.resultado_final = ""
         llm = LLM(model="groq/llama-3.3-70b-versatile", api_key=groq_key)
         
         agentes_jobs = [
-            ("pesquisador", "Pesquisador", f"Analise o mercado para {tema}"),
+            ("pesquisador", "Pesquisador", f"Pesquise o mercado para {tema}"),
             ("diretor", "Diretor Criativo", f"Conceito e slogan para {tema}"),
             ("copywriter", "Copywriter", f"Legendas para {tema}"),
-            ("engenheiro", "Eng. Prompts", f"Prompts IA em inglês para {tema}"),
+            ("engenheiro", "Eng. Prompts", f"Prompts IA para {tema}"),
             ("social", "Social Media", f"Cronograma para {tema}")
         ]
 
@@ -118,7 +117,7 @@ if st.button("🚀 Iniciar Agência"):
                     components.html(render_office(st.session_state.status, dict_selecionados), height=350)
 
                 ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert", llm=llm)
-                ts = Task(description=task_desc, expected_output="Resumo curto.", agent=ag)
+                ts = Task(description=task_desc, expected_output="Resumo.", agent=ag)
                 res = Crew(agents=[ag], tasks=[ts]).kickoff()
                 
                 st.session_state.resultado_final += f"--- {nome_ag.upper()} ---\n{res.raw}\n\n"
@@ -130,7 +129,28 @@ if st.button("🚀 Iniciar Agência"):
         st.success("Trabalho concluído!")
 
 # ==========================================
-# EXIBIÇÃO DOS RESULTADOS E DOWNLOADS (FORA DO BOTÃO START)
+# RESULTADOS E DOWNLOADS
 # ==========================================
 if st.session_state.resultado_final:
-    st.markdown("### 📄 Relatório
+    st.markdown("### 📄 Relatório Final")
+    st.info(st.session_state.resultado_final)
+    
+    col1, col2 = st.columns(2)
+    with col1:
+        st.download_button(
+            label="⬇️ Baixar TXT",
+            data=st.session_state.resultado_final,
+            file_name="campanha.txt",
+            mime="text/plain"
+        )
+    with col2:
+        try:
+            pdf_data = gerar_pdf(st.session_state.resultado_final)
+            st.download_button(
+                label="⬇️ Baixar PDF",
+                data=bytes(pdf_data),
+                file_name="campanha.pdf",
+                mime="application/pdf"
+            )
+        except Exception as e:
+            st.error(f"Erro ao gerar PDF: {e}")
