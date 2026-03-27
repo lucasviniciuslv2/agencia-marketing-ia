@@ -5,209 +5,19 @@ from fpdf import FPDF
 import PyPDF2
 import time
 
-# IMPORTAÇÃO DA BUSCA
+# IMPORTAÇÃO DA BUSCA (SKILL WEB)
 try:
     from langchain_community.tools import DuckDuckGoSearchRun
     search_tool = DuckDuckGoSearchRun()
 except:
     search_tool = None
 
-st.set_page_config(page_title="Agência IA Premium", page_icon="🏢", layout="wide")
+# Configuração da Página
+st.set_page_config(page_title="Agência IA Premium Multi-Modelo", page_icon="🏢", layout="wide")
 
 # ==========================================
-# MOTOR VISUAL: O NOVO ESCRITÓRIO 2.5D
+# SKILL: LEITURA DE PDF (GIGANTE)
 # ==========================================
-def render_office_premium(status_agentes, selecionados):
-    agentes_config = [
-        {"id": "pesquisador", "nome": "Pesquisador", "emoji": "🔍", "avatar": "👨‍💻", "msg": "Buscando dados..."},
-        {"id": "diretor", "nome": "Dir. Criativo", "emoji": "🎨", "avatar": "👩‍🎨", "msg": "Criando conceito..."},
-        {"id": "copywriter", "nome": "Copywriter", "emoji": "✍️", "avatar": "✍️", "msg": "Escrevendo..."},
-        {"id": "engenheiro", "nome": "Eng. Prompts", "emoji": "🖼️", "avatar": "👨‍🚀", "msg": "Afinando prompts..."},
-        {"id": "social", "nome": "Social Media", "emoji": "📱", "avatar": "🤳", "msg": "Organizando posts..."},
-    ]
-
-    cards_html = ""
-    for ag in agentes_config:
-        status = status_agentes.get(ag["id"], "espera")
-        ativo = selecionados.get(ag["id"], False)
-        
-        # Lógica de estilo
-        opacity = "1" if ativo else "0.3"
-        is_working = status == "trabalhando"
-        glow = "working-glow" if is_working else ""
-        done_mark = "✅" if status == "concluido" else ""
-        
-        # Balão de pensamento só aparece se estiver trabalhando
-        thought_balloon = f'<div class="thought-balloon">{ag["msg"]}</div>' if is_working else ""
-
-        cards_html += f"""
-        <div class="baia-wrapper" style="opacity: {opacity};">
-            {thought_balloon}
-            <div class="name-tag">{ag['emoji']} {ag['nome']} {done_mark}</div>
-            <div class="station {glow}">
-                <div class="monitor-screen">{'⚡' if is_working else ''}</div>
-                <div class="keyboard"></div>
-                <div class="avatar {'jump-anim' if is_working else ''}">{ag['avatar']}</div>
-            </div>
-        </div>
-        """
-
-    return f"""
-    <style>
-        :root {{ --neon: #00f5d4; --dark: #0a0a12; }}
-        body {{ background: var(--dark); font-family: sans-serif; margin: 0; overflow: hidden; }}
-        
-        /* O Cenário do Escritório */
-        .office-floor {{
-            background: linear-gradient(180deg, #161625 0%, #0a0a12 100%);
-            padding: 40px 20px;
-            border-radius: 20px;
-            border: 2px solid #1e1e30;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            perspective: 1000px;
-        }}
-
-        /* Área de Lounge no Topo */
-        .lounge {{
-            width: 100%;
-            display: flex;
-            justify-content: flex-end;
-            gap: 20px;
-            padding-bottom: 20px;
-            border-bottom: 1px solid #1e1e30;
-            margin-bottom: 30px;
-            font-size: 20px;
-        }}
-
-        .grid-agentes {{
-            display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 40px;
-            justify-items: center;
-        }}
-
-        .baia-wrapper {{
-            position: relative;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-        }}
-
-        /* Balão de Pensamento */
-        .thought-balloon {{
-            position: absolute;
-            top: -45px;
-            background: white;
-            color: black;
-            padding: 5px 10px;
-            border-radius: 10px;
-            font-size: 11px;
-            font-weight: bold;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-            animation: float 2s infinite ease-in-out;
-            white-space: nowrap;
-        }}
-        .thought-balloon::after {{
-            content: '';
-            position: absolute;
-            bottom: -5px;
-            left: 50%;
-            border-left: 5px solid transparent;
-            border-right: 5px solid transparent;
-            border-top: 5px solid white;
-            transform: translateX(-50%);
-        }}
-
-        .name-tag {{
-            background: #000;
-            color: #fff;
-            padding: 4px 12px;
-            border-radius: 20px;
-            font-size: 11px;
-            margin-bottom: 8px;
-            border: 1px solid #333;
-        }}
-
-        /* A Mesa/Estação */
-        .station {{
-            width: 120px;
-            height: 70px;
-            background: #2a2a3a;
-            border-radius: 8px 8px 0 0;
-            position: relative;
-            transform: rotateX(20deg);
-            box-shadow: 0 10px 0 #1a1a2a;
-            display: flex;
-            justify-content: center;
-        }}
-
-        .monitor-screen {{
-            width: 60px;
-            height: 35px;
-            background: #111;
-            border: 3px solid #444;
-            border-radius: 4px;
-            position: absolute;
-            top: 10px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: var(--neon);
-            font-size: 12px;
-        }}
-
-        .keyboard {{
-            width: 40px;
-            height: 4px;
-            background: #555;
-            position: absolute;
-            bottom: 15px;
-            border-radius: 2px;
-        }}
-
-        .avatar {{
-            font-size: 40px;
-            position: absolute;
-            bottom: -15px;
-            z-index: 10;
-            filter: drop-shadow(0 5px 5px rgba(0,0,0,0.5));
-        }}
-
-        /* Efeitos de Neon e Animação */
-        .working-glow {{
-            box-shadow: 0 0 30px var(--neon), 0 10px 0 #1a1a2a;
-            border: 1px solid var(--neon);
-        }}
-        .working-glow .monitor-screen {{
-            background: #002a25;
-            border-color: var(--neon);
-            box-shadow: inset 0 0 10px var(--neon);
-        }}
-
-        @keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-8px); }} }}
-        .jump-anim {{ animation: jump 0.4s infinite alternate; }}
-        @keyframes float {{ 0%, 100% {{ transform: translateY(0); }} 50% {{ transform: translateY(-5px); }} }}
-    </style>
-
-    <div class="office-floor">
-        <div class="lounge">
-            <span title="Máquina de Café">☕</span>
-            <span title="Área de Descanso">🛋️</span>
-            <span title="Plantas">🌿</span>
-        </div>
-        <div class="grid-agentes">
-            {cards_html}
-        </div>
-    </div>
-    """
-
-# ==========================================
-# LÓGICA DO APP (Simplificada para manter as chaves que você já tem)
-# ==========================================
-
-# (Mantenha aqui as suas funções extrair_texto_pdf, gerar_pdf, nova_campanha que já funcionam)
 def extrair_texto_pdf(file):
     pdf_reader = PyPDF2.PdfReader(file)
     texto = ""
@@ -215,20 +25,55 @@ def extrair_texto_pdf(file):
         texto += page.extract_text()
     return texto
 
+# ==========================================
+# UI E FUNÇÕES DE APOIO
+# ==========================================
 def nova_campanha():
     st.session_state.resultado_final = ""
     st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
     if "tema_input" in st.session_state: st.session_state["tema_input"] = ""
 
+def render_office(status_agentes, selecionados):
+    agentes_config = [
+        {"id": "pesquisador", "nome": "Pesquisador", "emoji": "🔍", "avatar": "👨‍💻"},
+        {"id": "diretor", "nome": "Dir. Criativo", "emoji": "🎨", "avatar": "👩‍🎨"},
+        {"id": "copywriter", "nome": "Copywriter", "emoji": "✍️", "avatar": "✍️"},
+        {"id": "engenheiro", "nome": "Eng. Prompts", "emoji": "🖼️", "avatar": "👨‍🚀"},
+        {"id": "social", "nome": "Social Media", "emoji": "📱", "avatar": "🤳"},
+    ]
+    html_cards = ""
+    for ag in agentes_config:
+        status = status_agentes.get(ag["id"], "espera")
+        foi_selecionado = selecionados.get(ag["id"], False)
+        glow_class = ""; opacidade = "1" if foi_selecionado else "0.2"; cor_monitor = "#1e1e1e"; status_texto = "💤"
+        if foi_selecionado:
+            if status == "trabalhando": glow_class = "trabalhando-anim"; cor_monitor = "#00d4ff"; status_texto = "⚙️"
+            elif status == "concluido": cor_monitor = "#06d6a0"; status_texto = "✅"
+            else: status_texto = "⏳"
+        html_cards += f"""<div class="baia-container" style="opacity: {opacidade};"><div class="name-tag"><span>{ag['emoji']} {ag['nome']}</span><span style="margin-left:8px;">{status_texto}</span></div><div class="mesa"><div class="monitor {glow_class}" style="background: {cor_monitor};"></div><div class="personagem {'animar-pulo' if status == 'trabalhando' else ''}">{ag['avatar']}</div></div><div class="chao-madeira"></div></div>"""
+    return f"""<style>.office-grid {{display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px; padding: 20px; background: #111; border-radius: 15px; justify-items: center;}}.baia-container {{ display: flex; flex-direction: column; align-items: center; transition: 0.3s; width: 150px; }}.name-tag {{background: #000; color: #fff; padding: 5px 12px; border-radius: 10px; font-size: 11px; font-family: sans-serif; margin-bottom: 5px; border: 1px solid #333; white-space: nowrap;}}.mesa {{position: relative; width: 120px; height: 60px; background: #bbb; border-radius: 5px; display: flex; justify-content: center;}}.monitor {{width: 50px; height: 30px; border: 3px solid #333; border-radius: 3px; position: absolute; top: 5px; transition: 0.5s;}}.personagem {{ font-size: 30px; position: absolute; bottom: -8px; z-index: 5; }}.chao-madeira {{ width: 140px; height: 8px; background: #4a2c2a; border-top: 2px solid #5d3a37; }}.trabalhando-anim {{ animation: pulse 1s infinite alternate; }}@keyframes pulse {{ from {{ box-shadow: 0 0 2px #00d4ff; }} to {{ box-shadow: 0 0 15px #00d4ff; }} }}.animar-pulo {{ animation: jump 0.5s infinite alternate; }}@keyframes jump {{ from {{ transform: translateY(0); }} to {{ transform: translateY(-5px); }} }}</style><div class="office-grid">{html_cards}</div>"""
+
+# ==========================================
+# INICIALIZAÇÃO DE ESTADO
+# ==========================================
+if 'resultado_final' not in st.session_state: st.session_state.resultado_final = ""
+if 'status' not in st.session_state: 
+    st.session_state.status = {k: "espera" for k in ["pesquisador", "diretor", "copywriter", "engenheiro", "social"]}
+
+# ==========================================
+# SIDEBAR - CENTRAL DE CHAVES
+# ==========================================
 with st.sidebar:
-    st.header("🔑 APIs")
-    k_groq = st.text_input("Groq Key", type="password")
-    k_gemini = st.text_input("Gemini Key", type="password")
-    k_mistral = st.text_input("Mistral Key", type="password")
+    st.header("🔑 Central de IAs")
+    k_groq = st.text_input("Groq Key (Velocidade)", type="password")
+    k_gemini = st.text_input("Gemini Key (Contexto/Briefing)", type="password")
+    k_mistral = st.text_input("Mistral Key (Técnica)", type="password")
+    
     st.divider()
-    tema = st.text_area("🎯 Tema", key="tema_input")
-    arquivo_briefing = st.file_uploader("📁 PDF", type=["pdf"])
-    st.divider()
+    tema = st.text_area("🎯 Tema Principal", key="tema_input")
+    arquivo_briefing = st.file_uploader("📁 PDF de Briefing (Opcional)", type=["pdf"])
+    
+    st.subheader("👥 Time Ativo")
     dict_sel = {
         "pesquisador": st.checkbox("Pesquisador", True),
         "diretor": st.checkbox("Dir. Criativo", True),
@@ -236,41 +81,88 @@ with st.sidebar:
         "engenheiro": st.checkbox("Eng. Prompts", True),
         "social": st.checkbox("Social Media", True)
     }
-    btn_iniciar = st.button("🚀 Iniciar Ciclo")
-    st.button("🧹 Reset", on_click=nova_campanha)
+    
+    col1, col2 = st.columns(2)
+    with col1: btn_iniciar = st.button("🚀 Iniciar")
+    with col2: st.button("🧹 Reset", on_click=nova_campanha)
 
-st.title("🤖 Escritório Digital de Elite")
+st.title("🤖 Agência IA Corporativa (Multi-Modelo)")
 
-# Inicializa Status se não existir
-if 'status' not in st.session_state:
-    st.session_state.status = {k: "espera" for k in dict_sel.keys()}
-
-# Renderiza o novo escritório
+# Escritório Virtual
 escritorio_container = st.empty()
 with escritorio_container:
-    components.html(render_office_premium(st.session_state.status, dict_sel), height=450)
+    components.html(render_office(st.session_state.status, dict_sel), height=400)
 
-# Lógica de Execução (Utilize a lógica Multi-LLM que já criamos antes)
+# ==========================================
+# LÓGICA DE EXECUÇÃO MULTI-LLM
+# ==========================================
 if btn_iniciar:
     if not k_groq or not tema:
-        st.error("Chave Groq e Tema são necessários!")
+        st.error("Pelo menos a Groq API Key e o Tema são necessários!")
     else:
-        # (Lógica do btn_iniciar que já tínhamos: Roteamento de APIs, CrewAI, context_acumulado...)
-        # Apenas certifique-se de atualizar o escritorio_container dentro do loop:
-        # st.session_state.status[id_ag] = "trabalhando"
-        # with escritorio_container: components.html(render_office_premium(...), height=450)
+        # 1. Processamento de Briefing Extra
+        texto_briefing = extrair_texto_pdf(arquivo_briefing) if arquivo_briefing else ""
         
-        # EXEMPLO SIMPLIFICADO DO LOOP PARA TESTE VISUAL:
-        for id_ag in dict_sel:
+        # 2. Configuração das Instâncias de LLM (Roteamento Inteligente)
+        # Gemini para contexto pesado
+        llm_gemini = LLM(model="gemini/gemini-1.5-flash", api_key=k_gemini) if k_gemini else LLM(model="groq/llama-3.3-70b-versatile", api_key=k_groq)
+        # Mistral para técnica
+        llm_mistral = LLM(model="mistral/mistral-large-latest", api_key=k_mistral) if k_mistral else LLM(model="groq/llama-3.3-70b-versatile", api_key=k_groq)
+        # Groq para velocidade de redação
+        llm_groq = LLM(model="groq/llama-3.3-70b-versatile", api_key=k_groq)
+
+        # Mapeamento do Trabalho
+        agentes_jobs = [
+            ("pesquisador", "Pesquisador", llm_gemini, 
+             f"Analise o tema {tema} usando este briefing extra: {texto_briefing}. Pesquise na web tendências."),
+            
+            ("diretor", "Dir. Criativo", llm_gemini, 
+             f"Com base na análise do briefing, crie o conceito e slogan para {tema}."),
+            
+            ("copywriter", "Copywriter", llm_groq, 
+             f"Escreva 3 legendas magnéticas para Instagram focadas no público de {tema}."),
+            
+            ("engenheiro", "Eng. Prompts", llm_mistral, 
+             f"Gere a estratégia visual e 3 prompts técnicos em Inglês para {tema}."),
+            
+            ("social", "Social Media", llm_groq, 
+             f"Monte um cronograma de 5 dias integrando as entregas da equipe.")
+        ]
+
+        contexto_acumulado = f"[BRIEFING DO CLIENTE]: {texto_briefing}\n" if texto_briefing else ""
+        st.session_state.resultado_final = ""
+        log_status = st.status("🏗️ Orquestrando agência Multi-Modelo...")
+
+        for id_ag, nome_ag, llm_modelo, task_desc in agentes_jobs:
             if dict_sel[id_ag]:
+                # UI: Trabalhando
+                log_status.update(label=f"⚙️ {nome_ag} usando {llm_modelo.model}...", state="running")
                 st.session_state.status[id_ag] = "trabalhando"
                 with escritorio_container:
-                    components.html(render_office_premium(st.session_state.status, dict_sel), height=450)
-                
-                time.sleep(2) # Simulando trabalho para você ver o novo visual
-                
-                st.session_state.status[id_ag] = "concluido"
-                with escritorio_container:
-                    components.html(render_office_premium(st.session_state.status, dict_sel), height=450)
+                    components.html(render_office(st.session_state.status, dict_sel), height=400)
 
-        st.success("Visual do escritório reformado com sucesso!")
+                # Execução
+                tarefa_completa = f"{task_desc}\n\nUSE O CONTEXTO ANTERIOR: {contexto_acumulado}"
+                ag = Agent(role=nome_ag, goal=task_desc, backstory="Expert Sênior.", llm=llm_modelo, tools=[search_tool] if (id_ag=="pesquisador" and search_tool) else [])
+                ts = Task(description=tarefa_completa, expected_output="Resultado profissional detalhado.", agent=ag)
+                
+                try:
+                    res = Crew(agents=[ag], tasks=[ts], max_rpm=2).kickoff()
+                    st.session_state.resultado_final += f"### {nome_ag.upper()} (via {llm_modelo.model})\n{res.raw}\n\n---\n"
+                    contexto_acumulado += f"\n[{nome_ag}: {res.raw}]"
+                    
+                    # Concluído
+                    st.session_state.status[id_ag] = "concluido"
+                    with escritorio_container:
+                        components.html(render_office(st.session_state.status, dict_sel), height=400)
+                    time.sleep(2)
+                except Exception as e:
+                    st.error(f"Erro com {nome_ag}: {e}")
+                    break
+
+        log_status.update(label="✅ Projeto Concluído com Sucesso!", state="complete")
+
+# Exibição
+if st.session_state.resultado_final:
+    st.info(st.session_state.resultado_final)
+    st.download_button("⬇️ Baixar TXT", st.session_state.resultado_final, "campanha_multi_ia.txt")
