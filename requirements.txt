@@ -4,3 +4,5 @@ streamlit
 fpdf2
 duckduckgo-search
 langchain-community
+langchain-google-genai
+langchain-mistralai
